@@ -10,21 +10,19 @@ import (
 	"google.golang.org/genai"
 )
 
-type GetUserArgs struct {
-	Columns []string `json:"columns"`
-	Emails  []string `json:"emails"`
+type Aggregation struct {
+	Func   string `json:"func"`
+	Column string `json:"column"`
 }
-
-type GetUserItem struct {
-	Email string `json:"email,omitempty"`
-	Name  string `json:"name,omitempty"`
-	Age   int    `json:"age,omitempty"`
+type GetUserArgs struct {
+	Columns      []string      `json:"columns"`
+	Emails       []string      `json:"emails"`
+	Aggregations []Aggregation `json:"aggregations"`
 }
 
 var getUserDeclaration = &genai.FunctionDeclaration{
-	Name: "getUser",
-	Description: `Get user information based on their email. Information returned are
-	email, name, and age.`,
+	Name:        "getUser",
+	Description: `Get user information based on their email. Available columns: email, name, age. Supports aggregation (count, sum, avg, min, max) when the prompt asks for totals, averages, counts, etc. Use aggregations parameter for aggregate queries and columns parameter for group-by fields.`,
 	Parameters: &genai.Schema{
 		Type: genai.TypeObject,
 		Properties: map[string]*genai.Schema{
@@ -38,16 +36,29 @@ var getUserDeclaration = &genai.FunctionDeclaration{
 				Items:       &genai.Schema{Type: genai.TypeString},
 				Description: "user email",
 			},
+			"aggregations": {
+				Type: genai.TypeArray,
+				Items: &genai.Schema{
+					Type: genai.TypeObject,
+					Properties: map[string]*genai.Schema{
+						"func": {
+							Type:        genai.TypeString,
+							Description: "aggregation function to apply",
+						},
+						"column": {
+							Type:        genai.TypeString,
+							Description: "column that is being aggregated",
+						},
+					},
+				},
+				Description: "what aggregations the prompt requires",
+			},
 		},
 		Required: []string{"columns", "emails"},
 	},
 	Response: &genai.Schema{
-		Type: genai.TypeObject,
-		Properties: map[string]*genai.Schema{
-			"email": {Type: genai.TypeString, Description: "user email"},
-			"name":  {Type: genai.TypeString, Description: "user name"},
-			"age":   {Type: genai.TypeInteger, Description: "user age"},
-		},
+		Type:        genai.TypeObject,
+		Description: "key-value pairs where keys are column names or aggregation column like max_age, avg_age, etc. aggregated column are named as {func}_{column}",
 	},
 }
 
@@ -58,30 +69,30 @@ func (t *toolImpl) getUser(ctx context.Context, token *oauth2.Token, rawArgs jso
 		return nil, fmt.Errorf("unable to unmarshal raw args: %w", err)
 	}
 
-	rows, err := t.bqRepo.GetUser(ctx, bqrepo.GetUserArgs{
-		Token:   token,
-		Columns: args.Columns,
-		Emails:  args.Emails,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("unable to get rows: %w", err)
-	}
-
-	items := []GetUserItem{}
-	for _, r := range rows {
-		items = append(items, GetUserItem{
-			Email: r.Email,
-			Name:  r.Name,
-			Age:   r.Age,
+	aggregations := []bqrepo.Aggregation{}
+	for _, a := range args.Aggregations {
+		aggregations = append(aggregations, bqrepo.Aggregation{
+			Func:   a.Func,
+			Column: a.Column,
 		})
 	}
 
-	marshaledItems, err := json.Marshal(items)
+	result, err := t.bqRepo.GetUser(ctx, bqrepo.GetUserArgs{
+		Token:        token,
+		Columns:      args.Columns,
+		Emails:       args.Emails,
+		Aggregations: aggregations,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("unable to marshal items: %w", err)
+		return nil, fmt.Errorf("unable to get result: %w", err)
 	}
 
-	return marshaledItems, nil
+	marshaledResult, err := json.Marshal(result)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal result: %w", err)
+	}
+
+	return marshaledResult, nil
 }
 
 func (t *toolImpl) GetUser() WiringItem {
