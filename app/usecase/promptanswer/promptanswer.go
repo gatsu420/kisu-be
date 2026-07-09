@@ -43,7 +43,7 @@ func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAns
 }
 
 func (u *usecaseImpl) hashParam(ctx context.Context, param string) (string, error) {
-	paramParts := strings.Split(param, "\n")
+	paramParts := strings.Split(param, ",")
 	randomIntSaltPart, ok := ctx.Value(commonhash.RandomIntCtxKey).(int)
 	if !ok {
 		return "", fmt.Errorf("unable to get random int salt part from context")

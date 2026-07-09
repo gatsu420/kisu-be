@@ -3,7 +3,6 @@ package bqrepo
 import (
 	"context"
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -14,23 +13,44 @@ import (
 	"google.golang.org/api/option"
 )
 
+type Aggregation struct {
+	Func   string
+	Column string
+}
+
 type GetUserArgs struct {
-	Token   *oauth2.Token
-	Columns []string
-	Emails  []string
+	Token        *oauth2.Token
+	Columns      []string
+	Emails       []string
+	Aggregations []Aggregation
 }
 
-type GetUserItem struct {
-	Email string `bigquery:"email"`
-	Name  string `bigquery:"name"`
-	Age   int    `bigquery:"age"`
-}
+func (r *repositoryImpl) GetUser(ctx context.Context, args GetUserArgs) ([]map[string]bigquery.Value, error) {
+	var groupByColumns []string
+	if args.Aggregations != nil {
+		for _, c := range args.Columns {
+			var isGroupByColumn bool
+			for _, a := range args.Aggregations {
+				if c == a.Column {
+					isGroupByColumn = true
+					break
+				}
+			}
 
-func (r *repositoryImpl) GetUser(ctx context.Context, args GetUserArgs) ([]GetUserItem, error) {
-	if !slices.Contains(args.Columns, "email") {
-		args.Columns = append(args.Columns, "email")
+			if !isGroupByColumn {
+				groupByColumns = append(groupByColumns, c)
+			}
+		}
 	}
-	selectedColumns := strings.Join(args.Columns, ",")
+
+	var selectedColumns []string
+	for _, c := range groupByColumns {
+		selectedColumns = append(selectedColumns, c)
+	}
+	for _, a := range args.Aggregations {
+		selectedColumns = append(selectedColumns,
+			fmt.Sprintf("%v(%v) as %v_%v", a.Func, a.Column, a.Func, a.Column))
+	}
 
 	googleAuthClient := r.googleAuth.Client(ctx, args.Token)
 	bqClient, err := bigquery.NewClient(ctx, r.projectID, option.WithHTTPClient(googleAuthClient))
@@ -38,7 +58,7 @@ func (r *repositoryImpl) GetUser(ctx context.Context, args GetUserArgs) ([]GetUs
 		return nil, fmt.Errorf("unable to create bigquery client: %w", err)
 	}
 
-	query := bqClient.Query(fmt.Sprintf(`
+	query := fmt.Sprintf(`
 		select %v from (
 			select
 				'test@gmail.com' email,
@@ -60,7 +80,15 @@ func (r *repositoryImpl) GetUser(ctx context.Context, args GetUserArgs) ([]GetUs
 				30 age
 		)
 		where to_base64(sha256(concat(email, @salt))) in unnest(@emails)
-		`, selectedColumns))
+		`, strings.Join(selectedColumns, ","))
+	for i := range groupByColumns {
+		if i == 0 {
+			query += ("\ngroup by " + strconv.Itoa(i+1))
+		} else {
+			query += ("," + strconv.Itoa(i+1))
+		}
+	}
+	bqQuery := bqClient.Query(query)
 
 	randomIntSaltPart, ok := ctx.Value(commonhash.RandomIntCtxKey).(int)
 	if !ok {
@@ -68,18 +96,18 @@ func (r *repositoryImpl) GetUser(ctx context.Context, args GetUserArgs) ([]GetUs
 	}
 
 	salt := r.stringSaltPart + strconv.Itoa(randomIntSaltPart)
-	query.Parameters = []bigquery.QueryParameter{
+	bqQuery.Parameters = []bigquery.QueryParameter{
 		{Name: "emails", Value: args.Emails},
 		{Name: "salt", Value: salt},
 	}
-	rows, err := query.Read(ctx)
+	rows, err := bqQuery.Read(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to execute query: %w", err)
 	}
 
-	var result []GetUserItem
+	result := []map[string]bigquery.Value{}
 	for {
-		var item GetUserItem
+		var item map[string]bigquery.Value
 		err := rows.Next(&item)
 		if err == iterator.Done {
 			break

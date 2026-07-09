@@ -84,19 +84,19 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 
 func (h *handlerImpl) getEmail(ctx context.Context, token *oauth2.Token) (string, error) {
 	googleAuthClient := h.googleAuth.Client(ctx, token)
-	resp, err := googleAuthClient.Get("https://www.googleapis.com/oauth2/v3/userinfo")
+	resp, err := googleAuthClient.Get("https://openidconnect.googleapis.com/v1/userinfo")
 	if err != nil {
 		return "", fmt.Errorf("unable to get user info from google auth: %w", err)
 	}
 	defer resp.Body.Close()
 
 	var respResult struct {
-		email string
+		Email string `json:"email"`
 	}
 	err = json.NewDecoder(resp.Body).Decode(&respResult)
 	if err != nil {
 		return "", fmt.Errorf("unable to decode response body: %w", err)
 	}
 
-	return respResult.email, nil
+	return respResult.Email, nil
 }
