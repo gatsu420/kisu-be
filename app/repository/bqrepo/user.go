@@ -25,43 +25,32 @@ type GetUserArgs struct {
 	Aggregations []Aggregation
 }
 
-// case 1 args aggregation is nil: select biasa
-// case 2 args aggregation is not nil, selectedColumn avg_: avg(umur)
-// columns: email, umur;
-// case 3 args aggregation is not nil, selectedColumn email dan avg_: email, avg(umur) group by email
-// columns: email, umur
 func (r *repositoryImpl) GetUser(ctx context.Context, args GetUserArgs) ([]map[string]bigquery.Value, error) {
-	groupByColumns := []string{}
+	var groupByColumns []string
 	if args.Aggregations != nil {
 		for _, c := range args.Columns {
 			var isGroupByColumn bool
 
 			for _, a := range args.Aggregations {
-				if c != a.Column {
+				if c == a.Column {
 					isGroupByColumn = true
 					break
 				}
 			}
 
-			if isGroupByColumn {
+			if !isGroupByColumn {
 				groupByColumns = append(groupByColumns, c)
 			}
 		}
 	}
-	fmt.Println("groupByColumns: ", groupByColumns)
 
-	var selectedFlatColumns string
-	if len(groupByColumns) != 0 {
-		selectedFlatColumns = strings.Join(groupByColumns, ",")
-		for _, a := range args.Aggregations {
-			selectedFlatColumns += fmt.Sprintf(", %v(%v) as %v_%v", a.Func, a.Column, a.Func, a.Column)
-		}
-	} else if args.Aggregations != nil {
-		for _, a := range args.Aggregations {
-			selectedFlatColumns += fmt.Sprintf("%v(%v) as %v_%v,", a.Func, a.Column, a.Func, a.Column)
-		}
-	} else {
-		selectedFlatColumns = strings.Join(args.Columns, ",")
+	var selectedColumns []string
+	for _, c := range groupByColumns {
+		selectedColumns = append(selectedColumns, c)
+	}
+	for _, a := range args.Aggregations {
+		selectedColumns = append(selectedColumns,
+			fmt.Sprintf("%v(%v) as %v_%v", a.Func, a.Column, a.Func, a.Column))
 	}
 
 	googleAuthClient := r.googleAuth.Client(ctx, args.Token)
@@ -92,20 +81,14 @@ func (r *repositoryImpl) GetUser(ctx context.Context, args GetUserArgs) ([]map[s
 				30 age
 		)
 		where to_base64(sha256(concat(email, @salt))) in unnest(@emails)
-		`, selectedFlatColumns)
-	if len(groupByColumns) != 0 {
-		query += "\ngroup by all"
+		`, strings.Join(selectedColumns, ","))
+	for i := range groupByColumns {
+		if i == 0 {
+			query += ("\ngroup by " + strconv.Itoa(i+1))
+		} else {
+			query += ("," + strconv.Itoa(i+1))
+		}
 	}
-	// if len(groupByColumns) != 0 {
-	// 	query += "\ngroup by"
-	// 	for i, c := range groupByColumns {
-	// 		if i == 0 {
-	// 			query += "\n" + c
-	// 		} else {
-	// 			query += "\n, " + c
-	// 		}
-	// 	}
-	// }
 	bqQuery := bqClient.Query(query)
 
 	randomIntSaltPart, ok := ctx.Value(commonhash.RandomIntCtxKey).(int)
@@ -123,7 +106,7 @@ func (r *repositoryImpl) GetUser(ctx context.Context, args GetUserArgs) ([]map[s
 		return nil, fmt.Errorf("unable to execute query: %w", err)
 	}
 
-	var result []map[string]bigquery.Value
+	result := []map[string]bigquery.Value{}
 	for {
 		var item map[string]bigquery.Value
 		err := rows.Next(&item)

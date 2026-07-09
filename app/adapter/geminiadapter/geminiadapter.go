@@ -55,8 +55,6 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 			Content: json.RawMessage("\"prompt is not associated with any tool\""),
 		}, nil
 	}
-	marshaledFuncCalls, _ := json.MarshalIndent(funcCalls, "", " ")
-	fmt.Println(string(marshaledFuncCalls))
 
 	funcCallArgs, err := json.Marshal(funcCalls[0].Args)
 	if err != nil {

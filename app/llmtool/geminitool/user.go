@@ -21,8 +21,11 @@ type GetUserArgs struct {
 }
 
 var getUserDeclaration = &genai.FunctionDeclaration{
-	Name:        "getUser",
-	Description: `Get user information based on their email. Available columns: email, name, age. Supports aggregation (count, sum, avg, min, max) when the prompt asks for totals, averages, counts, etc. Use aggregations parameter for aggregate queries and columns parameter for group-by fields.`,
+	Name: "getUser",
+	Description: `Get user information based on their email.
+	Available columns: email, name, age.
+	When the prompt requires aggregation (sum(), count(), avg(), etc), use aggregations parameter
+	for aggregate queries and columns parameter for group-by fields.`,
 	Parameters: &genai.Schema{
 		Type: genai.TypeObject,
 		Properties: map[string]*genai.Schema{
