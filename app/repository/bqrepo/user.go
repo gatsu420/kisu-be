@@ -30,7 +30,6 @@ func (r *repositoryImpl) GetUser(ctx context.Context, args GetUserArgs) ([]map[s
 	if args.Aggregations != nil {
 		for _, c := range args.Columns {
 			var isGroupByColumn bool
-
 			for _, a := range args.Aggregations {
 				if c == a.Column {
 					isGroupByColumn = true

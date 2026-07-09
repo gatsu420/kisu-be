@@ -26,6 +26,7 @@ func NewAdapter(googleAuthClientID string, googleAuthClientSecret string, google
 			ClientSecret: googleAuthClientSecret,
 			RedirectURL:  googleAuthRedirectUrl,
 			Scopes: []string{
+				"https://www.googleapis.com/auth/userinfo.email",
 				bigquery.BigqueryScope,
 			},
 			Endpoint: google.Endpoint,
