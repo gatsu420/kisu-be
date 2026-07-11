@@ -10,7 +10,6 @@ import (
 type Config struct {
 	ProjectID              string
 	HashSecret             string
-	StringSaltPart         string
 	GeminiApiKey           string
 	GoogleAuthClientID     string
 	GoogleAuthClientSecret string
@@ -25,7 +24,6 @@ func NewConfig(envPath string) (Config, error) {
 	return Config{
 		ProjectID:              os.Getenv("PROJECT_ID"),
 		HashSecret:             os.Getenv("HASH_SECRET"),
-		StringSaltPart:         os.Getenv("STRING_SALT_PART"),
 		GeminiApiKey:           os.Getenv("GEMINI_API_KEY"),
 		GoogleAuthClientID:     os.Getenv("GOOGLE_AUTH_CLIENT_ID"),
 		GoogleAuthClientSecret: os.Getenv("GOOGLE_AUTH_CLIENT_SECRET"),
