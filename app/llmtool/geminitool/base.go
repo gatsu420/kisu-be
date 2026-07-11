@@ -10,7 +10,7 @@ import (
 )
 
 type Tool interface {
-	GetUser() WiringItem
+	GetSeller() WiringItem
 }
 
 type toolImpl struct {

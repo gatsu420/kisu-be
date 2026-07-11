@@ -101,6 +101,6 @@ func startServer(ctx context.Context, config commonconfig.Config) *http.Server {
 
 func registerGeminiTools(wiring geminitool.Wiring, tool geminitool.Tool) {
 	wiring.Add([]geminitool.WiringItem{
-		tool.GetUser(),
+		tool.GetSeller(),
 	})
 }
