@@ -12,9 +12,5 @@ func (r *repositoryImpl) CheckExistence(state string) bool {
 	defer r.mu.Unlock()
 
 	_, ok := r.states[state]
-	if !ok {
-		return false
-	}
-
-	return true
+	return ok
 }
