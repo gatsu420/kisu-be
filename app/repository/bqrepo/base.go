@@ -8,7 +8,6 @@ import (
 )
 
 type Repository interface {
-	GetUser(ctx context.Context, args GetUserArgs) ([]map[string]bigquery.Value, error)
 	GetSeller(ctx context.Context, args GetSellerArgs) ([]map[string]bigquery.Value, error)
 }
 
