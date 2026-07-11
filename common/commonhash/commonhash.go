@@ -2,27 +2,13 @@ package commonhash
 
 import (
 	"crypto/hmac"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"fmt"
-	"math/big"
 )
 
 type ctxKey int
 
-const RandomIntCtxKey ctxKey = 0
-
-func GetRandomInt() (int, error) {
-	upperBound, lowerBound := 999999, -999999
-	randomBigInt, err := rand.Int(rand.Reader,
-		big.NewInt(int64(upperBound-lowerBound)))
-	if err != nil {
-		return 0, fmt.Errorf("unable to create random *big.Int number")
-	}
-
-	return int(randomBigInt.Int64()) + 1 + lowerBound, nil
-}
+const SaltCtxKey ctxKey = 0
 
 func HashStringSlice(slc []string, salt string) []string {
 	var result []string

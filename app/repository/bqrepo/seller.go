@@ -3,7 +3,6 @@ package bqrepo
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	"cloud.google.com/go/bigquery"
 	"github.com/gatsu420/kisu-be/common/commonhash"
@@ -24,12 +23,11 @@ func (r *repositoryImpl) GetSeller(ctx context.Context, args GetSellerArgs) ([]m
 		return nil, fmt.Errorf("unable to create bigquery client: %w", err)
 	}
 
-	randomIntSaltPart, ok := ctx.Value(commonhash.RandomIntCtxKey).(int)
+	salt, ok := ctx.Value(commonhash.SaltCtxKey).(string)
 	if !ok {
-		return nil, fmt.Errorf("unable to get random int salt part from context")
+		return nil, fmt.Errorf("unable to get salt from context")
 	}
 
-	salt := r.stringSaltPart + strconv.Itoa(randomIntSaltPart)
 	hashQuery := bqClient.Query(fmt.Sprintf(`
 		create or replace view rumah-aya.some_event.merchants_hash_query as
 		select
