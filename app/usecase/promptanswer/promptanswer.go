@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/gatsu420/kisu-be/app/adapter/geminiadapter"
@@ -44,12 +43,11 @@ func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAns
 
 func (u *usecaseImpl) hashParam(ctx context.Context, param string) (string, error) {
 	paramParts := strings.Split(param, ",")
-	randomIntSaltPart, ok := ctx.Value(commonhash.RandomIntCtxKey).(int)
+	salt, ok := ctx.Value(commonhash.SaltCtxKey).(string)
 	if !ok {
-		return "", fmt.Errorf("unable to get random int salt part from context")
+		return "", fmt.Errorf("unable to get salt from context")
 	}
 
-	salt := u.stringSaltPart + strconv.Itoa(randomIntSaltPart)
 	hashedParts := commonhash.HashStringSlice(paramParts, salt)
 	return strings.Join(hashedParts, ","), nil
 }

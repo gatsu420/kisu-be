@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strconv"
 
 	"github.com/gatsu420/kisu-be/common/commonerr"
 	"github.com/gatsu420/kisu-be/common/commonhash"
@@ -58,16 +57,7 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	randomIntSaltPart, err := commonhash.GetRandomInt()
-	if err != nil {
-		errMsg = "unable to get random int"
-		slog.Error(errMsg, slog.Int(commonerr.StatusCodeKey, http.StatusInternalServerError),
-			slog.Any(commonerr.ErrKey, err))
-		http.Error(w, errMsg, http.StatusInternalServerError)
-		return
-	}
-
-	salt := h.stringSaltPart + strconv.Itoa(randomIntSaltPart)
+	salt := uuid.New().String()
 	hashedEmail := commonhash.HashString([]byte(h.secret), email, salt)
 	http.SetCookie(w, &http.Cookie{
 		Name:     "hashed_email",

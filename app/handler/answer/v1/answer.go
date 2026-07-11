@@ -9,6 +9,7 @@ import (
 	"github.com/gatsu420/kisu-be/app/usecase/promptanswer"
 	"github.com/gatsu420/kisu-be/common/commonerr"
 	"github.com/gatsu420/kisu-be/common/commonhash"
+	"github.com/google/uuid"
 )
 
 type GetAnswerArgs struct {
@@ -39,16 +40,8 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	randomIntSaltPart, err := commonhash.GetRandomInt()
-	if err != nil {
-		errMsg = "unable to get random int"
-		slog.Error(errMsg, slog.Int(commonerr.StatusCodeKey, http.StatusInternalServerError),
-			slog.Any(commonerr.ErrKey, err))
-		http.Error(w, errMsg, http.StatusInternalServerError)
-		return
-	}
-
-	ctx := context.WithValue(r.Context(), commonhash.RandomIntCtxKey, randomIntSaltPart)
+	salt := uuid.New().String()
+	ctx := context.WithValue(r.Context(), commonhash.SaltCtxKey, salt)
 	answer, err := h.promptAnswerUsecase.GetAnswer(ctx, promptanswer.GetAnswerArgs{
 		HashedEmail: hashedEmail.Value,
 		Prompt:      args.Prompt,
