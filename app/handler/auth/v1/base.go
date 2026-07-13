@@ -14,19 +14,17 @@ type Handler interface {
 }
 
 type handlerImpl struct {
-	googleAuth     googleauthadapter.Adapter
-	stateRepo      staterepo.Repository
-	tokenRepo      tokenrepo.Repository
-	secret         string
-	stringSaltPart string
+	googleAuth googleauthadapter.Adapter
+	stateRepo  staterepo.Repository
+	tokenRepo  tokenrepo.Repository
+	secret     string
 }
 
-func NewHandler(googleAuth googleauthadapter.Adapter, stateRepo staterepo.Repository, tokenRepo tokenrepo.Repository, secret string, stringSaltPart string) Handler {
+func NewHandler(googleAuth googleauthadapter.Adapter, stateRepo staterepo.Repository, tokenRepo tokenrepo.Repository, secret string) Handler {
 	return &handlerImpl{
-		googleAuth:     googleAuth,
-		stateRepo:      stateRepo,
-		tokenRepo:      tokenRepo,
-		secret:         secret,
-		stringSaltPart: stringSaltPart,
+		googleAuth: googleAuth,
+		stateRepo:  stateRepo,
+		tokenRepo:  tokenRepo,
+		secret:     secret,
 	}
 }

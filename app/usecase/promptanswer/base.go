@@ -13,17 +13,15 @@ type Usecase interface {
 }
 
 type usecaseImpl struct {
-	stringSaltPart string
-	tokenRepo      tokenrepo.Repository
-	googleAuth     googleauthadapter.Adapter
-	geminiAdapter  geminiadapter.Adapter
+	tokenRepo     tokenrepo.Repository
+	googleAuth    googleauthadapter.Adapter
+	geminiAdapter geminiadapter.Adapter
 }
 
-func NewUsecase(stringSaltPart string, tokenRepo tokenrepo.Repository, googleAuth googleauthadapter.Adapter, geminiAdapter geminiadapter.Adapter) Usecase {
+func NewUsecase(tokenRepo tokenrepo.Repository, googleAuth googleauthadapter.Adapter, geminiAdapter geminiadapter.Adapter) Usecase {
 	return &usecaseImpl{
-		stringSaltPart: stringSaltPart,
-		tokenRepo:      tokenRepo,
-		googleAuth:     googleAuth,
-		geminiAdapter:  geminiAdapter,
+		tokenRepo:     tokenRepo,
+		googleAuth:    googleAuth,
+		geminiAdapter: geminiAdapter,
 	}
 }

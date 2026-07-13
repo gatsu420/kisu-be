@@ -12,15 +12,13 @@ type Repository interface {
 }
 
 type repositoryImpl struct {
-	projectID      string
-	stringSaltPart string
-	googleAuth     googleauthadapter.Adapter
+	projectID  string
+	googleAuth googleauthadapter.Adapter
 }
 
-func NewRepository(projectID string, stringSaltPart string, googleAuth googleauthadapter.Adapter) Repository {
+func NewRepository(projectID string, googleAuth googleauthadapter.Adapter) Repository {
 	return &repositoryImpl{
-		projectID:      projectID,
-		stringSaltPart: stringSaltPart,
-		googleAuth:     googleAuth,
+		projectID:  projectID,
+		googleAuth: googleAuth,
 	}
 }
