@@ -20,17 +20,7 @@ type GetAnswerArgs struct {
 func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
-	var args GetAnswerArgs
 	var errMsg string
-	err := json.NewDecoder(r.Body).Decode(&args)
-	if err != nil {
-		errMsg = "unable to decode request body"
-		slog.Error(errMsg, slog.Int(commonerr.StatusCodeKey, http.StatusBadRequest),
-			slog.Any(commonerr.ErrKey, err))
-		http.Error(w, errMsg, http.StatusBadRequest)
-		return
-	}
-
 	hashedEmail, err := r.Cookie("hashed_email")
 	if err != nil {
 		errMsg = "login session is expired"
@@ -42,10 +32,12 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 
 	salt := uuid.New().String()
 	ctx := context.WithValue(r.Context(), commonhash.SaltCtxKey, salt)
+	prompt := r.URL.Query().Get("prompt")
+	param := r.URL.Query().Get("param")
 	answer, err := h.promptAnswerUsecase.GetAnswer(ctx, promptanswer.GetAnswerArgs{
 		HashedEmail: hashedEmail.Value,
-		Prompt:      args.Prompt,
-		Param:       args.Param,
+		Prompt:      prompt,
+		Param:       param,
 	})
 	if err != nil {
 		errMsg = "unable to get answer"

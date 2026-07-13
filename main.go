@@ -64,7 +64,7 @@ func main() {
 
 func startServer(ctx context.Context, config commonconfig.Config) *http.Server {
 	googleAuth := googleauthadapter.NewAdapter(config.GoogleAuthClientID, config.GoogleAuthClientSecret, config.GoogleAuthRedirectURL)
-	bqRepo := bqrepo.NewRepository(config.ProjectID, config.StringSaltPart, googleAuth)
+	bqRepo := bqrepo.NewRepository(config.ProjectID, googleAuth)
 
 	geminiTool := geminitool.NewTool(bqRepo)
 	geminiToolWiring := geminitool.NewWiring()
@@ -84,8 +84,8 @@ func startServer(ctx context.Context, config commonconfig.Config) *http.Server {
 	stateRepo := staterepo.NewRepository()
 	tokenRepo := tokenrepo.NewRepository()
 
-	authHandler := authhandlerv1.NewHandler(googleAuth, stateRepo, tokenRepo, config.HashSecret, config.StringSaltPart)
-	answerUsecase := promptanswer.NewUsecase(config.StringSaltPart, tokenRepo, googleAuth, geminiAdapter)
+	authHandler := authhandlerv1.NewHandler(googleAuth, stateRepo, tokenRepo, config.HashSecret)
+	answerUsecase := promptanswer.NewUsecase(tokenRepo, googleAuth, geminiAdapter)
 	answerHandler := answerhandlerv1.NewHandler(answerUsecase)
 
 	mux := http.NewServeMux()
