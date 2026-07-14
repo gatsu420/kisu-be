@@ -16,7 +16,8 @@ type GetContentArgs struct {
 }
 
 type GetContentResult struct {
-	Content json.RawMessage
+	Content              json.RawMessage
+	StringifiedFuncCalls string
 }
 
 func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetContentResult, error) {
@@ -50,9 +51,16 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 	}
 
 	funcCalls := resp.FunctionCalls()
+	marshaledFuncCalls, err := json.MarshalIndent(funcCalls, "", " ")
+	if err != nil {
+		return GetContentResult{}, fmt.Errorf("unable to marshal tool: %w", err)
+	}
+	stringifiedFuncCalls := string(marshaledFuncCalls)
+
 	if len(funcCalls) == 0 {
 		return GetContentResult{
-			Content: json.RawMessage("\"prompt is not associated with any tool\""),
+			Content:              json.RawMessage("\"prompt is not associated with any tool\""),
+			StringifiedFuncCalls: stringifiedFuncCalls,
 		}, nil
 	}
 
@@ -67,6 +75,7 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 	}
 
 	return GetContentResult{
-		Content: result,
+		Content:              result,
+		StringifiedFuncCalls: stringifiedFuncCalls,
 	}, nil
 }
