@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/gatsu420/kisu-be/app/adapter/geminiadapter"
 	"github.com/gatsu420/kisu-be/common/commonhash"
@@ -44,7 +45,9 @@ func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAns
 }
 
 func (u *usecaseImpl) hashParam(ctx context.Context, param string) (string, error) {
-	paramParts := strings.Split(param, ",")
+	paramParts := strings.FieldsFunc(param, func(r rune) bool {
+		return r == ',' || unicode.IsSpace(r)
+	})
 	salt, ok := ctx.Value(commonhash.SaltCtxKey).(string)
 	if !ok {
 		return "", fmt.Errorf("unable to get salt from context")
