@@ -8,7 +8,7 @@ import (
 )
 
 type Repository interface {
-	GetSeller(ctx context.Context, args GetSellerArgs) ([]map[string]bigquery.Value, error)
+	GetInformation(ctx context.Context, args GetSellerArgs) ([]map[string]bigquery.Value, error)
 }
 
 type repositoryImpl struct {

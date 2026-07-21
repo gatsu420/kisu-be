@@ -11,14 +11,16 @@ import (
 )
 
 type GetSellerArgs struct {
-	Query string `json:"query"`
+	TableName string `json:"table_name"`
+	ViewName  string `json:"view_name"`
+	Query     string `json:"query"`
 }
 
 var getSellerDeclaration = &genai.FunctionDeclaration{
-	Name: "getSeller",
+	Name: "rumah-aya.some_event.merchants",
 	Description: `
-	Run select only query from rumah-aya.some_event.merchants_hash_query
-	to get information about seller.
+	Table name is rumah-aya.some_event.merchants, while view name is
+	that and added with _hashed. Query selects from view, not from table.
 
 	The view has these columns:
 	- name (string): seller name
@@ -36,12 +38,12 @@ var getSellerDeclaration = &genai.FunctionDeclaration{
 		name,
 		shop_id,
 		age,
-	  from rumah-aya.some_event.merchants_hash_query
+	  from rumah-aya.some_event.merchants_hashed
 	- get average age per seller
 	  select
 	  	name,
 		avg(age)
-	  from rumah-aya.some_event.merchants_hash_query
+	  from rumah-aya.some_event.merchants_hashed
 	  group by 1
 	`,
 	Parameters: &genai.Schema{
@@ -51,12 +53,20 @@ var getSellerDeclaration = &genai.FunctionDeclaration{
 				Type:        genai.TypeString,
 				Description: "Hashed seller emails delimited by comma",
 			},
+			"table_name": {
+				Type:        genai.TypeString,
+				Description: "Data source which is used to create view",
+			},
+			"view_name": {
+				Type:        genai.TypeString,
+				Description: "Data source which is used for query to select from",
+			},
 			"query": {
 				Type:        genai.TypeString,
 				Description: "Query to get wanted information",
 			},
 		},
-		Required: []string{"hashed_email", "query"},
+		Required: []string{"hashed_email", "query", "table_name", "view_name"},
 	},
 	Response: &genai.Schema{
 		Type:        genai.TypeArray,
@@ -72,9 +82,11 @@ func (t *toolImpl) getSeller(ctx context.Context, token *oauth2.Token, rawArgs j
 		return nil, fmt.Errorf("unable to unmarshal raw args: %w", err)
 	}
 
-	result, err := t.bqRepo.GetSeller(ctx, bqrepo.GetSellerArgs{
-		Token: token,
-		Query: args.Query,
+	result, err := t.bqRepo.GetInformation(ctx, bqrepo.GetSellerArgs{
+		Token:     token,
+		TableName: args.TableName,
+		ViewName:  args.ViewName,
+		Query:     args.Query,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get result: %w", err)
