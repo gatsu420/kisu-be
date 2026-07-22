@@ -12,11 +12,14 @@ import (
 )
 
 type GetSellerArgs struct {
-	Token *oauth2.Token
-	Query string
+	Token       *oauth2.Token
+	TableName   string
+	ViewName    string
+	ParamColumn string
+	Query       string
 }
 
-func (r *repositoryImpl) GetSeller(ctx context.Context, args GetSellerArgs) ([]map[string]bigquery.Value, error) {
+func (r *repositoryImpl) GetInformation(ctx context.Context, args GetSellerArgs) ([]map[string]bigquery.Value, error) {
 	googleAuthClient := r.googleAuth.Client(ctx, args.Token)
 	bqClient, err := bigquery.NewClient(ctx, r.projectID, option.WithHTTPClient(googleAuthClient))
 	if err != nil {
@@ -29,12 +32,12 @@ func (r *repositoryImpl) GetSeller(ctx context.Context, args GetSellerArgs) ([]m
 	}
 
 	hashQuery := bqClient.Query(fmt.Sprintf(`
-		create or replace view rumah-aya.some_event.merchants_hash_query as
+		create or replace view %v as
 		select
-			* except(email),
-			to_base64(sha256(concat(email, "%v"))) hashed_email
-		from rumah-aya.some_event.merchants
-		`, salt))
+			*,
+			to_base64(sha256(concat(%v, "%v"))) param
+		from %v
+		`, args.ViewName, args.ParamColumn, salt, args.TableName))
 
 	job, err := hashQuery.Run(ctx)
 	if err != nil {
