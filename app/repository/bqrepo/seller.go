@@ -12,10 +12,11 @@ import (
 )
 
 type GetSellerArgs struct {
-	Token     *oauth2.Token
-	TableName string
-	ViewName  string
-	Query     string
+	Token       *oauth2.Token
+	TableName   string
+	ViewName    string
+	ParamColumn string
+	Query       string
 }
 
 func (r *repositoryImpl) GetInformation(ctx context.Context, args GetSellerArgs) ([]map[string]bigquery.Value, error) {
@@ -33,10 +34,10 @@ func (r *repositoryImpl) GetInformation(ctx context.Context, args GetSellerArgs)
 	hashQuery := bqClient.Query(fmt.Sprintf(`
 		create or replace view %v as
 		select
-			* except(email),
-			to_base64(sha256(concat(email, "%v"))) hashed_email
+			*,
+			to_base64(sha256(concat(%v, "%v"))) param
 		from %v
-		`, args.ViewName, salt, args.TableName))
+		`, args.ViewName, args.ParamColumn, salt, args.TableName))
 
 	job, err := hashQuery.Run(ctx)
 	if err != nil {
