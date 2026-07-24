@@ -8,6 +8,7 @@ import (
 
 type Handler interface {
 	GetAnswer(w http.ResponseWriter, r *http.Request)
+	AddMetadata(w http.ResponseWriter, r *http.Request)
 }
 
 type handlerImpl struct {
