@@ -17,11 +17,13 @@ import (
 	authhandlerv1 "github.com/gatsu420/kisu-be/app/handler/auth/v1"
 	"github.com/gatsu420/kisu-be/app/llmtool/geminitool"
 	"github.com/gatsu420/kisu-be/app/repository/bqrepo"
+	"github.com/gatsu420/kisu-be/app/repository/pgrepo"
 	"github.com/gatsu420/kisu-be/app/repository/staterepo"
 	"github.com/gatsu420/kisu-be/app/repository/tokenrepo"
 	"github.com/gatsu420/kisu-be/app/usecase/promptanswer"
 	"github.com/gatsu420/kisu-be/common/commonconfig"
 	"github.com/gatsu420/kisu-be/common/commonerr"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/genai"
 )
 
@@ -65,6 +67,14 @@ func main() {
 func startServer(ctx context.Context, config commonconfig.Config) *http.Server {
 	googleAuth := googleauthadapter.NewAdapter(config.GoogleAuthClientID, config.GoogleAuthClientSecret, config.GoogleAuthRedirectURL)
 	bqRepo := bqrepo.NewRepository(config.ProjectID, googleAuth)
+	pgxPool, err := pgxpool.New(context.Background(), config.PostgresDSN)
+	if err != nil {
+		slog.Error("unable to create postgres pool using pgx",
+			slog.Any(commonerr.ErrKey, err),
+			slog.Int(commonerr.StatusCodeKey, http.StatusInternalServerError),
+		)
+	}
+	pgRepo := pgrepo.NewRepository(pgxPool)
 
 	geminiTool := geminitool.NewTool(bqRepo)
 	geminiToolWiring := geminitool.NewWiring()
@@ -85,12 +95,13 @@ func startServer(ctx context.Context, config commonconfig.Config) *http.Server {
 	tokenRepo := tokenrepo.NewRepository()
 
 	authHandler := authhandlerv1.NewHandler(googleAuth, stateRepo, tokenRepo, config.HashSecret)
-	answerUsecase := promptanswer.NewUsecase(tokenRepo, googleAuth, geminiAdapter)
+	answerUsecase := promptanswer.NewUsecase(tokenRepo, googleAuth, geminiAdapter, pgRepo)
 	answerHandler := answerhandlerv1.NewHandler(answerUsecase)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /auth/v1/get-permission", authHandler.GetPermission)
 	mux.HandleFunc("GET /auth/v1/callback", authHandler.Callback)
+	mux.HandleFunc("POST /answer/v1/metadata", answerHandler.AddMetadata)
 	mux.HandleFunc("GET /answer/v1/answer", answerHandler.GetAnswer)
 
 	return &http.Server{
