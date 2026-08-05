@@ -8,13 +8,14 @@ import (
 	"unicode"
 
 	"github.com/gatsu420/kisu-be/app/adapter/geminiadapter"
+	"github.com/gatsu420/kisu-be/app/middleware"
 	"github.com/gatsu420/kisu-be/common/commonhash"
+	"golang.org/x/oauth2"
 )
 
 type GetAnswerArgs struct {
-	HashedEmail string
-	Prompt      string
-	Param       string
+	Prompt string
+	Param  string
 }
 
 type GetAnswerResult struct {
@@ -28,7 +29,13 @@ func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAns
 		return GetAnswerResult{}, err
 	}
 
-	token := u.tokenRepo.Get(args.HashedEmail)
+	// Get fresh token from context (refreshed by middleware)
+	token, ok := ctx.Value(middleware.TokenCtxKey).(*oauth2.Token)
+	if !ok {
+		return GetAnswerResult{}, fmt.Errorf("token not found in context")
+	}
+
+	// Use token
 	content, err := u.geminiAdapter.GetContent(ctx, geminiadapter.GetContentArgs{
 		Token:  token,
 		Prompt: args.Prompt,

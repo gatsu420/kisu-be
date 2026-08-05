@@ -8,7 +8,6 @@ import (
 	"net/http"
 
 	"github.com/gatsu420/kisu-be/common/commonerr"
-	"github.com/gatsu420/kisu-be/common/commonhash"
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 )
@@ -57,18 +56,34 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	salt := uuid.New().String()
-	hashedEmail := commonhash.HashString([]byte(h.secret), email, salt)
+	// Upsert user into users table
+	userID, err := h.userRepo.UpsertByEmail(r.Context(), email)
+	if err != nil {
+		slog.Error("unable to upsert user",
+			slog.Int(commonerr.StatusCodeKey, http.StatusInternalServerError),
+			slog.Any(commonerr.ErrKey, err))
+		return
+	}
+
+	// Save token into user_tokens table
+	err = h.userTokenRepo.Save(r.Context(), userID, token)
+	if err != nil {
+		slog.Error("unable to save user token",
+			slog.Int(commonerr.StatusCodeKey, http.StatusInternalServerError),
+			slog.Any(commonerr.ErrKey, err))
+		return
+	}
+
+	// Set cookie with user_id
 	http.SetCookie(w, &http.Cookie{
-		Name:     "hashed_email",
-		Value:    hashedEmail,
+		Name:     "user_id",
+		Value:    userID,
 		Path:     "/",
 		MaxAge:   3600,
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 	})
-	h.tokenRepo.Save(hashedEmail, token)
 	w.WriteHeader(http.StatusOK)
 }
 

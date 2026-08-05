@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"flag"
 	"log/slog"
@@ -16,12 +17,15 @@ import (
 	answerhandlerv1 "github.com/gatsu420/kisu-be/app/handler/answer/v1"
 	authhandlerv1 "github.com/gatsu420/kisu-be/app/handler/auth/v1"
 	"github.com/gatsu420/kisu-be/app/llmtool/geminitool"
+	"github.com/gatsu420/kisu-be/app/middleware"
 	"github.com/gatsu420/kisu-be/app/repository/bqrepo"
 	"github.com/gatsu420/kisu-be/app/repository/staterepo"
-	"github.com/gatsu420/kisu-be/app/repository/tokenrepo"
+	"github.com/gatsu420/kisu-be/app/repository/userrepo"
+	"github.com/gatsu420/kisu-be/app/repository/usertokenrepo"
 	"github.com/gatsu420/kisu-be/app/usecase/promptanswer"
 	"github.com/gatsu420/kisu-be/common/commonconfig"
 	"github.com/gatsu420/kisu-be/common/commonerr"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"google.golang.org/genai"
 )
 
@@ -82,16 +86,31 @@ func startServer(ctx context.Context, config commonconfig.Config) *http.Server {
 
 	geminiAdapter := geminiadapter.NewAdapter(genaiClient, geminiToolWiring)
 	stateRepo := staterepo.NewRepository()
-	tokenRepo := tokenrepo.NewRepository()
 
-	authHandler := authhandlerv1.NewHandler(googleAuth, stateRepo, tokenRepo, config.HashSecret)
-	answerUsecase := promptanswer.NewUsecase(tokenRepo, googleAuth, geminiAdapter)
+	// Database connection
+	db, err := sql.Open("pgx", config.PostgresDSN)
+	if err != nil {
+		slog.Error("unable to connect to database",
+			slog.Any(commonerr.ErrKey, err),
+			slog.Int(commonerr.StatusCodeKey, http.StatusInternalServerError))
+	}
+	defer db.Close()
+
+	// Repositories
+	userRepo := userrepo.NewRepository(db)
+	userTokenRepo := usertokenrepo.NewRepository(db)
+
+	authHandler := authhandlerv1.NewHandler(googleAuth, stateRepo, userRepo, userTokenRepo)
+	answerUsecase := promptanswer.NewUsecase(geminiAdapter)
 	answerHandler := answerhandlerv1.NewHandler(answerUsecase)
+
+	// Auth middleware for token refresh
+	authMiddleware := middleware.TokenRefresh(userTokenRepo, googleAuth)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /auth/v1/get-permission", authHandler.GetPermission)
 	mux.HandleFunc("GET /auth/v1/callback", authHandler.Callback)
-	mux.HandleFunc("GET /answer/v1/answer", answerHandler.GetAnswer)
+	mux.Handle("GET /answer/v1/answer", authMiddleware(http.HandlerFunc(answerHandler.GetAnswer)))
 
 	return &http.Server{
 		Addr:    ":8080",
