@@ -4,8 +4,6 @@ import (
 	"context"
 
 	"github.com/gatsu420/kisu-be/app/adapter/geminiadapter"
-	"github.com/gatsu420/kisu-be/app/adapter/googleauthadapter"
-	"github.com/gatsu420/kisu-be/app/repository/tokenrepo"
 )
 
 type Usecase interface {
@@ -13,15 +11,11 @@ type Usecase interface {
 }
 
 type usecaseImpl struct {
-	tokenRepo     tokenrepo.Repository
-	googleAuth    googleauthadapter.Adapter
 	geminiAdapter geminiadapter.Adapter
 }
 
-func NewUsecase(tokenRepo tokenrepo.Repository, googleAuth googleauthadapter.Adapter, geminiAdapter geminiadapter.Adapter) Usecase {
+func NewUsecase(geminiAdapter geminiadapter.Adapter) Usecase {
 	return &usecaseImpl{
-		tokenRepo:     tokenRepo,
-		googleAuth:    googleAuth,
 		geminiAdapter: geminiAdapter,
 	}
 }

@@ -29,6 +29,21 @@ CREATE TABLE public.schema_migrations (
 
 
 --
+-- Name: user_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_tokens (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    access_token text NOT NULL,
+    refresh_token text,
+    token_expiry timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
 -- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -49,6 +64,14 @@ ALTER TABLE ONLY public.schema_migrations
 
 
 --
+-- Name: user_tokens user_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_tokens
+    ADD CONSTRAINT user_tokens_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: users users_email_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -65,6 +88,21 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: idx_user_tokens_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_user_tokens_user_id ON public.user_tokens USING btree (user_id);
+
+
+--
+-- Name: user_tokens user_tokens_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_tokens
+    ADD CONSTRAINT user_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
@@ -76,4 +114,5 @@ ALTER TABLE ONLY public.users
 --
 
 INSERT INTO public.schema_migrations (version) VALUES
-    ('20260805122958');
+    ('20260805122958'),
+    ('20260805130000');

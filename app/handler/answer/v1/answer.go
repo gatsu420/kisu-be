@@ -21,23 +21,18 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	var errMsg string
-	hashedEmail, err := r.Cookie("hashed_email")
-	if err != nil {
-		errMsg = "login session is expired"
-		slog.Error(errMsg, slog.Int(commonerr.StatusCodeKey, http.StatusUnauthorized),
-			slog.Any(commonerr.ErrKey, err))
-		http.Error(w, errMsg, http.StatusUnauthorized)
-		return
-	}
+
+	// Check if user is authenticated (middleware already validated)
+	// The middleware sets the token in context, so if we reach here,
+	// the user is authenticated
 
 	salt := uuid.New().String()
 	ctx := context.WithValue(r.Context(), commonhash.SaltCtxKey, salt)
 	prompt := r.URL.Query().Get("prompt")
 	param := r.URL.Query().Get("param")
 	answer, err := h.promptAnswerUsecase.GetAnswer(ctx, promptanswer.GetAnswerArgs{
-		HashedEmail: hashedEmail.Value,
-		Prompt:      prompt,
-		Param:       param,
+		Prompt: prompt,
+		Param:  param,
 	})
 	if err != nil {
 		errMsg = "unable to get answer"

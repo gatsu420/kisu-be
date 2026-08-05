@@ -5,7 +5,8 @@ import (
 
 	"github.com/gatsu420/kisu-be/app/adapter/googleauthadapter"
 	"github.com/gatsu420/kisu-be/app/repository/staterepo"
-	"github.com/gatsu420/kisu-be/app/repository/tokenrepo"
+	"github.com/gatsu420/kisu-be/app/repository/userrepo"
+	"github.com/gatsu420/kisu-be/app/repository/usertokenrepo"
 )
 
 type Handler interface {
@@ -14,17 +15,17 @@ type Handler interface {
 }
 
 type handlerImpl struct {
-	googleAuth googleauthadapter.Adapter
-	stateRepo  staterepo.Repository
-	tokenRepo  tokenrepo.Repository
-	secret     string
+	googleAuth    googleauthadapter.Adapter
+	stateRepo     staterepo.Repository
+	userRepo      userrepo.Repository
+	userTokenRepo usertokenrepo.Repository
 }
 
-func NewHandler(googleAuth googleauthadapter.Adapter, stateRepo staterepo.Repository, tokenRepo tokenrepo.Repository, secret string) Handler {
+func NewHandler(googleAuth googleauthadapter.Adapter, stateRepo staterepo.Repository, userRepo userrepo.Repository, userTokenRepo usertokenrepo.Repository) Handler {
 	return &handlerImpl{
-		googleAuth: googleAuth,
-		stateRepo:  stateRepo,
-		tokenRepo:  tokenRepo,
-		secret:     secret,
+		googleAuth:    googleAuth,
+		stateRepo:     stateRepo,
+		userRepo:      userRepo,
+		userTokenRepo: userTokenRepo,
 	}
 }
