@@ -13,6 +13,7 @@ type Adapter interface {
 	GetPermissionLink(state string) string
 	Exchange(ctx context.Context, code string) (*oauth2.Token, error)
 	Client(ctx context.Context, token *oauth2.Token) *http.Client
+	TokenSource(ctx context.Context, token *oauth2.Token) oauth2.TokenSource
 }
 
 type adapterImpl struct {

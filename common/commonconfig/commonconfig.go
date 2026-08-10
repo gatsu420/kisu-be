@@ -14,6 +14,7 @@ type Config struct {
 	GoogleAuthClientID     string
 	GoogleAuthClientSecret string
 	GoogleAuthRedirectURL  string
+	PostgresDSN            string
 }
 
 func NewConfig(envPath string) (Config, error) {
@@ -28,5 +29,6 @@ func NewConfig(envPath string) (Config, error) {
 		GoogleAuthClientID:     os.Getenv("GOOGLE_AUTH_CLIENT_ID"),
 		GoogleAuthClientSecret: os.Getenv("GOOGLE_AUTH_CLIENT_SECRET"),
 		GoogleAuthRedirectURL:  os.Getenv("GOOGLE_AUTH_REDIRECT_URL"),
+		PostgresDSN:            os.Getenv("POSTGRES_DSN"),
 	}, nil
 }

@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/gatsu420/kisu-be/app/usecase/user"
 	"github.com/gatsu420/kisu-be/common/commonerr"
-	"github.com/gatsu420/kisu-be/common/commonhash"
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 )
@@ -57,18 +57,36 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	salt := uuid.New().String()
-	hashedEmail := commonhash.HashString([]byte(h.secret), email, salt)
+	userResult, err := h.userUsecase.InsertUser(r.Context(), user.InsertUserArgs{
+		Email: email,
+	})
+	if err != nil {
+		slog.Error("unable to insert user",
+			slog.Int(commonerr.StatusCodeKey, http.StatusInternalServerError),
+			slog.Any(commonerr.ErrKey, err))
+		return
+	}
+
+	err = h.userUsecase.InsertUserToken(r.Context(), user.InsertUserTokenArgs{
+		UserID: userResult.UserID,
+		Token:  token,
+	})
+	if err != nil {
+		slog.Error("unable to insert user token",
+			slog.Int(commonerr.StatusCodeKey, http.StatusInternalServerError),
+			slog.Any(commonerr.ErrKey, err))
+		return
+	}
+
 	http.SetCookie(w, &http.Cookie{
-		Name:     "hashed_email",
-		Value:    hashedEmail,
+		Name:     "user_id",
+		Value:    userResult.UserID,
 		Path:     "/",
 		MaxAge:   3600,
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   false,
 		SameSite: http.SameSiteStrictMode,
 	})
-	h.tokenRepo.Save(hashedEmail, token)
 	w.WriteHeader(http.StatusOK)
 }
 

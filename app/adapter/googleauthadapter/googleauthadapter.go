@@ -20,3 +20,7 @@ func (a *adapterImpl) Exchange(ctx context.Context, code string) (*oauth2.Token,
 func (a *adapterImpl) Client(ctx context.Context, token *oauth2.Token) *http.Client {
 	return a.oauthConfig.Client(ctx, token)
 }
+
+func (a *adapterImpl) TokenSource(ctx context.Context, token *oauth2.Token) oauth2.TokenSource {
+	return a.oauthConfig.TokenSource(ctx, token)
+}
