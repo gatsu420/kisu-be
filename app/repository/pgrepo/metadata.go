@@ -89,3 +89,35 @@ func (r *repositoryImpl) GetUserToken(ctx context.Context, args GetUserTokenArgs
 		},
 	}, nil
 }
+
+type AddToolColumn struct {
+	Name        string
+	Type        string
+	Description string
+	IsSelected  bool
+}
+
+type AddToolQueryExample struct {
+	Description string
+	Query       string
+}
+
+type AddToolArgs struct {
+	ToolDescription string
+	TableName       string
+	Columns         []AddToolColumn
+	QueryExamples   []AddToolQueryExample
+}
+
+func (r *repositoryImpl) AddTool(ctx context.Context, args AddToolArgs) error {
+	_, err := r.pool.Exec(ctx, `
+		insert into tool (
+			tool_description, table_name, columns, query_examples
+		) values ($1, $2, $3, $4)
+	`, args.ToolDescription, args.TableName, args.Columns, args.QueryExamples)
+	if err != nil {
+		return fmt.Errorf("unable to add tool: %w", err)
+	}
+
+	return nil
+}

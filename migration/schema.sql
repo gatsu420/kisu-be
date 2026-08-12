@@ -29,6 +29,21 @@ CREATE TABLE public.schema_migrations (
 
 
 --
+-- Name: tool; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tool (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tool_description text NOT NULL,
+    table_name text NOT NULL,
+    columns jsonb NOT NULL,
+    query_examples jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
 -- Name: user_information; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -61,6 +76,14 @@ CREATE TABLE public.user_token (
 
 ALTER TABLE ONLY public.schema_migrations
     ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
+
+
+--
+-- Name: tool tool_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tool
+    ADD CONSTRAINT tool_pkey PRIMARY KEY (id);
 
 
 --
@@ -108,4 +131,5 @@ CREATE UNIQUE INDEX user_id_index ON public.user_token USING btree (user_id);
 INSERT INTO public.schema_migrations (version) VALUES
     ('20260807080210'),
     ('20260807163840'),
-    ('20260807165111');
+    ('20260807165111'),
+    ('20260812102043');
