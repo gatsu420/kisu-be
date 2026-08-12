@@ -1,4 +1,4 @@
-package promptanswer
+package answer
 
 import (
 	"context"

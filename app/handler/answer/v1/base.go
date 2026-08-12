@@ -3,7 +3,7 @@ package answerhandlerv1
 import (
 	"net/http"
 
-	"github.com/gatsu420/kisu-be/app/usecase/promptanswer"
+	"github.com/gatsu420/kisu-be/app/usecase/answer"
 )
 
 type Handler interface {
@@ -11,11 +11,11 @@ type Handler interface {
 }
 
 type handlerImpl struct {
-	promptAnswerUsecase promptanswer.Usecase
+	answerUsecase answer.Usecase
 }
 
-func NewHandler(promptAnswerUsecase promptanswer.Usecase) Handler {
+func NewHandler(answerUsecase answer.Usecase) Handler {
 	return &handlerImpl{
-		promptAnswerUsecase: promptAnswerUsecase,
+		answerUsecase: answerUsecase,
 	}
 }

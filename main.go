@@ -20,8 +20,8 @@ import (
 	"github.com/gatsu420/kisu-be/app/repository/bqrepo"
 	"github.com/gatsu420/kisu-be/app/repository/pgrepo"
 	"github.com/gatsu420/kisu-be/app/repository/staterepo"
-	"github.com/gatsu420/kisu-be/app/usecase/promptanswer"
-	"github.com/gatsu420/kisu-be/app/usecase/user"
+	"github.com/gatsu420/kisu-be/app/usecase/answer"
+	"github.com/gatsu420/kisu-be/app/usecase/metadata"
 	"github.com/gatsu420/kisu-be/common/commonconfig"
 	"github.com/gatsu420/kisu-be/common/commonerr"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -95,9 +95,9 @@ func startServer(ctx context.Context, config commonconfig.Config) *http.Server {
 	geminiAdapter := geminiadapter.NewAdapter(genaiClient, geminiToolWiring)
 	stateRepo := staterepo.NewRepository()
 
-	userUsecase := user.NewUsecase(pgRepo)
+	userUsecase := metadata.NewUsecase(pgRepo)
 	authHandler := authhandlerv1.NewHandler(googleAuth, userUsecase, stateRepo)
-	answerUsecase := promptanswer.NewUsecase(geminiAdapter)
+	answerUsecase := answer.NewUsecase(geminiAdapter)
 	answerHandler := answerhandlerv1.NewHandler(answerUsecase)
 
 	mux := http.NewServeMux()

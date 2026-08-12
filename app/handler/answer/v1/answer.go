@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/gatsu420/kisu-be/app/usecase/promptanswer"
+	"github.com/gatsu420/kisu-be/app/usecase/answer"
 	"github.com/gatsu420/kisu-be/common/commonerr"
 	"github.com/gatsu420/kisu-be/common/commonhash"
 	"github.com/google/uuid"
@@ -25,7 +25,7 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 	ctx := context.WithValue(r.Context(), commonhash.SaltCtxKey, salt)
 	prompt := r.URL.Query().Get("prompt")
 	param := r.URL.Query().Get("param")
-	answer, err := h.promptAnswerUsecase.GetAnswer(ctx, promptanswer.GetAnswerArgs{
+	promptAnswer, err := h.answerUsecase.GetAnswer(ctx, answer.GetAnswerArgs{
 		Prompt: prompt,
 		Param:  param,
 	})
@@ -37,7 +37,7 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = json.NewEncoder(w).Encode(answer)
+	err = json.NewEncoder(w).Encode(promptAnswer)
 	if err != nil {
 		errMsg = "unable to write response"
 		slog.Error(errMsg, slog.Int(commonerr.StatusCodeKey, http.StatusInternalServerError),

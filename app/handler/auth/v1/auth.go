@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/gatsu420/kisu-be/app/usecase/user"
+	"github.com/gatsu420/kisu-be/app/usecase/metadata"
 	"github.com/gatsu420/kisu-be/common/commonerr"
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
@@ -57,7 +57,7 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userResult, err := h.userUsecase.InsertUser(r.Context(), user.InsertUserArgs{
+	userResult, err := h.userUsecase.InsertUser(r.Context(), metadata.InsertUserArgs{
 		Email: email,
 	})
 	if err != nil {
@@ -67,7 +67,7 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.userUsecase.InsertUserToken(r.Context(), user.InsertUserTokenArgs{
+	err = h.userUsecase.InsertUserToken(r.Context(), metadata.InsertUserTokenArgs{
 		UserID: userResult.UserID,
 		Token:  token,
 	})
