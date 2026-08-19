@@ -105,6 +105,13 @@ func (h *handlerImpl) getEmail(ctx context.Context, token *oauth2.Token) (string
 	return respResult.Email, nil
 }
 
+type AddToolArgs struct {
+	ToolDescription string                `json:"tool_description"`
+	TableName       string                `json:"table_name"`
+	Columns         []AddToolColumn       `json:"columns"`
+	QueryExamples   []AddToolQueryExample `json:"query_examples"`
+}
+
 type AddToolColumn struct {
 	Name        string `json:"name"`
 	Type        string `json:"type"`
@@ -115,13 +122,6 @@ type AddToolColumn struct {
 type AddToolQueryExample struct {
 	Description string `json:"description"`
 	Query       string `json:"query"`
-}
-
-type AddToolArgs struct {
-	ToolDescription string                `json:"tool_description"`
-	TableName       string                `json:"table_name"`
-	Columns         []AddToolColumn       `json:"columns"`
-	QueryExamples   []AddToolQueryExample `json:"query_examples"`
 }
 
 func (h *handlerImpl) AddTool(w http.ResponseWriter, r *http.Request) {

@@ -90,6 +90,13 @@ func (r *repositoryImpl) GetUserToken(ctx context.Context, args GetUserTokenArgs
 	}, nil
 }
 
+type AddToolArgs struct {
+	ToolDescription string
+	TableName       string
+	Columns         []AddToolColumn
+	QueryExamples   []AddToolQueryExample
+}
+
 type AddToolColumn struct {
 	Name        string
 	Type        string
@@ -100,13 +107,6 @@ type AddToolColumn struct {
 type AddToolQueryExample struct {
 	Description string
 	Query       string
-}
-
-type AddToolArgs struct {
-	ToolDescription string
-	TableName       string
-	Columns         []AddToolColumn
-	QueryExamples   []AddToolQueryExample
 }
 
 func (r *repositoryImpl) AddTool(ctx context.Context, args AddToolArgs) error {
