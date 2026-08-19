@@ -1,6 +1,6 @@
 \restrict dbmate
 
--- Dumped from database version 17.10 (29ad1b7)
+-- Dumped from database version 17.11 (df1f1a3)
 -- Dumped by pg_dump version 17.10
 
 SET statement_timeout = 0;
@@ -34,6 +34,7 @@ CREATE TABLE public.schema_migrations (
 
 CREATE TABLE public.tool (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
     tool_description text NOT NULL,
     table_name text NOT NULL,
     columns jsonb NOT NULL,
@@ -115,6 +116,14 @@ ALTER TABLE ONLY public.user_token
 --
 
 CREATE UNIQUE INDEX user_id_index ON public.user_token USING btree (user_id);
+
+
+--
+-- Name: tool tool_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tool
+    ADD CONSTRAINT tool_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_information(id);
 
 
 --

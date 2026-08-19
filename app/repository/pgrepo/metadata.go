@@ -91,6 +91,7 @@ func (r *repositoryImpl) GetUserToken(ctx context.Context, args GetUserTokenArgs
 }
 
 type AddToolArgs struct {
+	UserID          string
 	ToolDescription string
 	TableName       string
 	Columns         []AddToolColumn
@@ -112,9 +113,9 @@ type AddToolQueryExample struct {
 func (r *repositoryImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 	_, err := r.pool.Exec(ctx, `
 		insert into tool (
-			tool_description, table_name, columns, query_examples
-		) values ($1, $2, $3, $4)
-	`, args.ToolDescription, args.TableName, args.Columns, args.QueryExamples)
+			user_id, tool_description, table_name, columns, query_examples
+		) values ($1, $2, $3, $4, $5)
+	`, args.UserID, args.ToolDescription, args.TableName, args.Columns, args.QueryExamples)
 	if err != nil {
 		return fmt.Errorf("unable to add tool: %w", err)
 	}

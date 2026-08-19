@@ -11,7 +11,6 @@ import (
 type Handler interface {
 	GetPermission(w http.ResponseWriter, r *http.Request)
 	Callback(w http.ResponseWriter, r *http.Request)
-	AddTool(w http.ResponseWriter, r *http.Request)
 }
 
 type handlerImpl struct {

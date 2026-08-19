@@ -1,6 +1,7 @@
 -- migrate:up
 create table tool (
     id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references user_information(id),
     tool_description text not null,
     table_name text not null,
     columns jsonb not null,

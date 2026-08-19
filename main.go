@@ -95,19 +95,20 @@ func startServer(ctx context.Context, config commonconfig.Config) *http.Server {
 	geminiAdapter := geminiadapter.NewAdapter(genaiClient, geminiToolWiring)
 	stateRepo := staterepo.NewRepository()
 
-	userUsecase := metadata.NewUsecase(pgRepo)
-	authHandler := authhandlerv1.NewHandler(googleAuth, userUsecase, stateRepo)
+	metadataUsecase := metadata.NewUsecase(pgRepo)
 	answerUsecase := answer.NewUsecase(geminiAdapter)
-	answerHandler := answerhandlerv1.NewHandler(answerUsecase)
+
+	authHandler := authhandlerv1.NewHandler(googleAuth, metadataUsecase, stateRepo)
+	answerHandler := answerhandlerv1.NewHandler(metadataUsecase, answerUsecase)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /auth/v1/get-permission", authHandler.GetPermission)
 	mux.HandleFunc("GET /auth/v1/callback", authHandler.Callback)
-
-	answerMiddleware := middleware.Chain(
+	authMiddleware := middleware.Chain(
 		middleware.RefreshToken(pgRepo, googleAuth),
 	)
-	mux.Handle("GET /answer/v1/answer", answerMiddleware(http.HandlerFunc(answerHandler.GetAnswer)))
+	mux.Handle("POST /answer/v1/tool", authMiddleware(http.HandlerFunc(answerHandler.AddTool)))
+	mux.Handle("GET /answer/v1/answer", authMiddleware(http.HandlerFunc(answerHandler.GetAnswer)))
 
 	return &http.Server{
 		Addr:    ":8080",

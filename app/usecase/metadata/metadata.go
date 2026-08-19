@@ -68,6 +68,7 @@ func (u *usecaseImpl) GetUserToken(ctx context.Context, args GetUserTokenArgs) (
 }
 
 type AddToolArgs struct {
+	UserID          string
 	ToolDescription string
 	TableName       string
 	Columns         []AddToolColumn
@@ -106,6 +107,7 @@ func (u *usecaseImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 	}
 
 	err := u.pgRepo.AddTool(ctx, pgrepo.AddToolArgs{
+		UserID:          args.UserID,
 		ToolDescription: args.ToolDescription,
 		TableName:       args.TableName,
 		Columns:         columns,
