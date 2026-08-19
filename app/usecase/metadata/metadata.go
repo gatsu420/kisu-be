@@ -8,34 +8,34 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type InsertUserArgs struct {
+type AddUserArgs struct {
 	Email string
 }
 
-type InsertUserResult struct {
+type AddUserResult struct {
 	UserID string
 }
 
-func (u *usecaseImpl) InsertUser(ctx context.Context, args InsertUserArgs) (InsertUserResult, error) {
-	result, err := u.pgRepo.InsertUser(ctx, pgrepo.InsertUserArgs{
+func (u *usecaseImpl) AddUser(ctx context.Context, args AddUserArgs) (AddUserResult, error) {
+	result, err := u.pgRepo.AddUser(ctx, pgrepo.AddUserArgs{
 		Email: args.Email,
 	})
 	if err != nil {
-		return InsertUserResult{}, err
+		return AddUserResult{}, err
 	}
 
-	return InsertUserResult{
+	return AddUserResult{
 		UserID: result.UserID,
 	}, nil
 }
 
-type InsertUserTokenArgs struct {
+type AddUserTokenArgs struct {
 	UserID string
 	Token  *oauth2.Token
 }
 
-func (u *usecaseImpl) InsertUserToken(ctx context.Context, args InsertUserTokenArgs) error {
-	err := u.pgRepo.InsertUserToken(ctx, pgrepo.InsertUserTokenArgs{
+func (u *usecaseImpl) AddUserToken(ctx context.Context, args AddUserTokenArgs) error {
+	err := u.pgRepo.AddUserToken(ctx, pgrepo.AddUserTokenArgs{
 		UserID: args.UserID,
 		Token:  args.Token,
 	})

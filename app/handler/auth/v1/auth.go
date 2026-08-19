@@ -57,22 +57,22 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userResult, err := h.metadataUsecase.InsertUser(r.Context(), metadata.InsertUserArgs{
+	addUserResult, err := h.metadataUsecase.AddUser(r.Context(), metadata.AddUserArgs{
 		Email: email,
 	})
 	if err != nil {
-		slog.Error("unable to insert user",
+		slog.Error("unable to add user",
 			slog.Int(commonerr.StatusCodeKey, http.StatusInternalServerError),
 			slog.Any(commonerr.ErrKey, err))
 		return
 	}
 
-	err = h.metadataUsecase.InsertUserToken(r.Context(), metadata.InsertUserTokenArgs{
-		UserID: userResult.UserID,
+	err = h.metadataUsecase.AddUserToken(r.Context(), metadata.AddUserTokenArgs{
+		UserID: addUserResult.UserID,
 		Token:  token,
 	})
 	if err != nil {
-		slog.Error("unable to insert user token",
+		slog.Error("unable to add user token",
 			slog.Int(commonerr.StatusCodeKey, http.StatusInternalServerError),
 			slog.Any(commonerr.ErrKey, err))
 		return
@@ -80,7 +80,7 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "user_id",
-		Value:    userResult.UserID,
+		Value:    addUserResult.UserID,
 		Path:     "/",
 		MaxAge:   3600,
 		HttpOnly: true,

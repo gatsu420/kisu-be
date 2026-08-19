@@ -8,15 +8,15 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type InsertUserArgs struct {
+type AddUserArgs struct {
 	Email string
 }
 
-type InsertUserResult struct {
+type AddUserResult struct {
 	UserID string
 }
 
-func (r *repositoryImpl) InsertUser(ctx context.Context, args InsertUserArgs) (InsertUserResult, error) {
+func (r *repositoryImpl) AddUser(ctx context.Context, args AddUserArgs) (AddUserResult, error) {
 	var userID string
 	err := r.pool.QueryRow(ctx, `
 		insert into user_information (email)
@@ -26,20 +26,20 @@ func (r *repositoryImpl) InsertUser(ctx context.Context, args InsertUserArgs) (I
 		returning id
 	`, args.Email).Scan(&userID)
 	if err != nil {
-		return InsertUserResult{}, fmt.Errorf("unable to insert user: %w", err)
+		return AddUserResult{}, fmt.Errorf("unable to add user: %w", err)
 	}
 
-	return InsertUserResult{
+	return AddUserResult{
 		UserID: userID,
 	}, nil
 }
 
-type InsertUserTokenArgs struct {
+type AddUserTokenArgs struct {
 	UserID string
 	Token  *oauth2.Token
 }
 
-func (r *repositoryImpl) InsertUserToken(ctx context.Context, args InsertUserTokenArgs) error {
+func (r *repositoryImpl) AddUserToken(ctx context.Context, args AddUserTokenArgs) error {
 	_, err := r.pool.Exec(ctx, `
 		insert into user_token (user_id, access_token, refresh_token, expired_at)
 		values ($1, $2, $3, $4)
@@ -50,7 +50,7 @@ func (r *repositoryImpl) InsertUserToken(ctx context.Context, args InsertUserTok
 			updated_at = now()
 	`, args.UserID, args.Token.AccessToken, args.Token.RefreshToken, args.Token.Expiry)
 	if err != nil {
-		return fmt.Errorf("unable to insert user token: %w", err)
+		return fmt.Errorf("unable to add user token: %w", err)
 	}
 
 	return nil

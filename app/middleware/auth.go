@@ -36,7 +36,7 @@ func RefreshToken(pgRepo pgrepo.Repository, googleAuth googleauthadapter.Adapter
 				return
 			}
 
-			err = pgRepo.InsertUserToken(r.Context(), pgrepo.InsertUserTokenArgs{
+			err = pgRepo.AddUserToken(r.Context(), pgrepo.AddUserTokenArgs{
 				UserID: cookie.Value,
 				Token:  freshToken,
 			})
