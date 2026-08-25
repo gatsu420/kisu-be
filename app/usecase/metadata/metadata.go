@@ -119,3 +119,65 @@ func (u *usecaseImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 
 	return nil
 }
+
+type GetToolArgs struct {
+	UserID string
+}
+
+type GetToolRow struct {
+	ToolDescription string
+	TableName       string
+	Columns         []GetToolColumn
+	QueryExample    []GetToolQueryExample
+}
+
+type GetToolColumn struct {
+	Name        string
+	Type        string
+	Description string
+	IsSelected  string
+}
+
+type GetToolQueryExample struct {
+	Description string
+	Query       string
+}
+
+func (u *usecaseImpl) GetTool(ctx context.Context, args GetToolArgs) ([]GetToolRow, error) {
+	rows, err := u.pgRepo.GetTool(ctx, pgrepo.GetToolArgs{
+		UserID: args.UserID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get tool: %w", err)
+	}
+
+	resultRows := []GetToolRow{}
+	for _, r := range rows {
+		resultColumns := []GetToolColumn{}
+		for _, c := range r.Columns {
+			resultColumns = append(resultColumns, GetToolColumn{
+				Name:        c.Name,
+				Type:        c.Type,
+				Description: c.Description,
+				IsSelected:  c.IsSelected,
+			})
+		}
+
+		resultQueryExamples := []GetToolQueryExample{}
+		for _, qe := range r.QueryExample {
+			resultQueryExamples = append(resultQueryExamples, GetToolQueryExample{
+				Description: qe.Description,
+				Query:       qe.Query,
+			})
+		}
+
+		resultRows = append(resultRows, GetToolRow{
+			ToolDescription: r.ToolDescription,
+			TableName:       r.TableName,
+			Columns:         resultColumns,
+			QueryExample:    resultQueryExamples,
+		})
+	}
+
+	return resultRows, nil
+}

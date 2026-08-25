@@ -11,6 +11,7 @@ type Usecase interface {
 	AddUserToken(ctx context.Context, args AddUserTokenArgs) error
 	GetUserToken(ctx context.Context, args GetUserTokenArgs) (GetUserTokenResult, error)
 	AddTool(ctx context.Context, args AddToolArgs) error
+	GetTool(ctx context.Context, args GetToolArgs) ([]GetToolRow, error)
 }
 
 type usecaseImpl struct {

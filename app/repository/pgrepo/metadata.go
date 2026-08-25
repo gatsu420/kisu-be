@@ -122,3 +122,65 @@ func (r *repositoryImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 
 	return nil
 }
+
+type GetToolArgs struct {
+	UserID string
+}
+
+type GetToolRow struct {
+	ToolDescription string
+	TableName       string
+	Columns         []GetToolColumn
+	QueryExample    []GetToolQueryExample
+}
+
+type GetToolColumn struct {
+	Name        string
+	Type        string
+	Description string
+	IsSelected  string
+}
+
+type GetToolQueryExample struct {
+	Description string
+	Query       string
+}
+
+func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) ([]GetToolRow, error) {
+	rows, err := r.pool.Query(ctx, `
+		select
+			tool_description,
+			table_name,
+			columns,
+			query_examples,
+		from tool
+		where user_id = $1
+	`, args.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get tool: %w", err)
+	}
+	defer rows.Close()
+
+	resultRows := []GetToolRow{}
+	for rows.Next() {
+		var resultRow GetToolRow
+		err := rows.Scan(
+			&resultRow.ToolDescription,
+			&resultRow.TableName,
+			&resultRow.Columns,
+			&resultRow.QueryExample,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read row when getting tool: %w", err)
+		}
+
+		resultRows = append(resultRows, resultRow)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("unable to iterate rows when getting tool: %w", err)
+	}
+
+	return resultRows, nil
+}

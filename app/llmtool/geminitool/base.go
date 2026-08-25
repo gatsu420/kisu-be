@@ -35,7 +35,6 @@ type Wiring interface {
 }
 
 type wiringImpl struct {
-	token *oauth2.Token
 	tools map[string]WiringItem
 }
 
