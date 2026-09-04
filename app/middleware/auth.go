@@ -13,7 +13,6 @@ import (
 type ctxKey int
 
 const TokenCtxKey ctxKey = iota
-const publicErrMsg = "request is unauthorized"
 
 func RefreshToken(pgRepo pgrepo.Repository, googleAuth googleauthadapter.Adapter) func(http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
@@ -26,7 +25,7 @@ func RefreshToken(pgRepo pgrepo.Repository, googleAuth googleauthadapter.Adapter
 				slog.Error("unable to find user_id cookie",
 					slog.Int(commonerr.StatusCodeKey, statusCode),
 					slog.Any(commonerr.ErrKey, err))
-				http.Error(w, publicErrMsg, statusCode)
+				http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 				return
 			}
 
@@ -38,7 +37,7 @@ func RefreshToken(pgRepo pgrepo.Repository, googleAuth googleauthadapter.Adapter
 				slog.Error("unable to get user token",
 					slog.Int(commonerr.StatusCodeKey, statusCode),
 					slog.Any(commonerr.ErrKey, err))
-				http.Error(w, publicErrMsg, statusCode)
+				http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 				return
 			}
 
@@ -49,7 +48,7 @@ func RefreshToken(pgRepo pgrepo.Repository, googleAuth googleauthadapter.Adapter
 				slog.Error("unable to refresh token",
 					slog.Int(commonerr.StatusCodeKey, statusCode),
 					slog.Any(commonerr.ErrKey, err))
-				http.Error(w, publicErrMsg, statusCode)
+				http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 				return
 			}
 
@@ -62,7 +61,7 @@ func RefreshToken(pgRepo pgrepo.Repository, googleAuth googleauthadapter.Adapter
 				slog.Error("unable to add user token",
 					slog.Int(commonerr.StatusCodeKey, statusCode),
 					slog.Any(commonerr.ErrKey, err))
-				http.Error(w, publicErrMsg, statusCode)
+				http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 				return
 			}
 

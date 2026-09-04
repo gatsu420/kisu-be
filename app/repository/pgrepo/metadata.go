@@ -91,18 +91,20 @@ func (r *repositoryImpl) GetUserToken(ctx context.Context, args GetUserTokenArgs
 }
 
 type AddToolArgs struct {
-	UserID          string
-	ToolDescription string
-	TableName       string
-	Columns         []AddToolColumn
-	QueryExamples   []AddToolQueryExample
+	UserID           string
+	ToolDescription  string
+	TableName        string
+	Columns          []AddToolColumn
+	QueryExamples    []AddToolQueryExample
+	ParamName        string
+	ParamType        string
+	ParamDescription string
 }
 
 type AddToolColumn struct {
 	Name        string
 	Type        string
 	Description string
-	IsSelected  bool
 }
 
 type AddToolQueryExample struct {
@@ -111,13 +113,31 @@ type AddToolQueryExample struct {
 }
 
 func (r *repositoryImpl) AddTool(ctx context.Context, args AddToolArgs) error {
-	_, err := r.pool.Exec(ctx, `
+	trx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to create transaction: %w", err)
+	}
+	defer trx.Rollback(ctx)
+
+	var toolID int
+	err = trx.QueryRow(ctx, `
 		insert into tool (
 			user_id, tool_description, table_name, columns, query_examples
 		) values ($1, $2, $3, $4, $5)
-	`, args.UserID, args.ToolDescription, args.TableName, args.Columns, args.QueryExamples)
+		returning id
+	`, args.UserID, args.ToolDescription, args.TableName, args.Columns, args.QueryExamples).
+		Scan(&toolID)
 	if err != nil {
 		return fmt.Errorf("unable to add tool: %w", err)
+	}
+
+	_, err = trx.Exec(ctx, `
+		insert into tool_param (
+			tool_id, name, type, description
+		) values ($1, $2, $3, $4)
+	`, toolID, args.ParamName, args.ParamType, args.ParamDescription)
+	if err != nil {
+		return fmt.Errorf("unable to add tool_param when adding tool: %w", err)
 	}
 
 	return nil
@@ -128,17 +148,19 @@ type GetToolArgs struct {
 }
 
 type GetToolRow struct {
-	ToolDescription string
-	TableName       string
-	Columns         []GetToolColumn
-	QueryExample    []GetToolQueryExample
+	ToolDescription  string
+	TableName        string
+	Columns          []GetToolColumn
+	QueryExample     []GetToolQueryExample
+	ParamName        string
+	ParamType        string
+	ParamDescription string
 }
 
 type GetToolColumn struct {
 	Name        string
 	Type        string
 	Description string
-	IsSelected  string
 }
 
 type GetToolQueryExample struct {

@@ -22,6 +22,17 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	var errMsg string
+	var statusCode int
+	userID, err := r.Cookie("user_id")
+	if err != nil {
+		statusCode = http.StatusUnauthorized
+		slog.Error("unable to get user_id cookie",
+			slog.Int(commonerr.StatusCodeKey, statusCode),
+			slog.Any(commonerr.ErrKey, err))
+		http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
+		return
+	}
+
 	salt := uuid.New().String()
 	ctx := context.WithValue(r.Context(), commonhash.SaltCtxKey, salt)
 	prompt := r.URL.Query().Get("prompt")
@@ -29,6 +40,7 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 	promptAnswer, err := h.answerUsecase.GetAnswer(ctx, answer.GetAnswerArgs{
 		Prompt: prompt,
 		Param:  param,
+		UserID: userID.Value,
 	})
 	if err != nil {
 		errMsg = "unable to get answer"
@@ -48,17 +60,19 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 }
 
 type AddToolArgs struct {
-	ToolDescription string                `json:"tool_description"`
-	TableName       string                `json:"table_name"`
-	Columns         []AddToolColumn       `json:"columns"`
-	QueryExamples   []AddToolQueryExample `json:"query_examples"`
+	ToolDescription        string                `json:"tool_description"`
+	TableName              string                `json:"table_name"`
+	Columns                []AddToolColumn       `json:"columns"`
+	QueryExamples          []AddToolQueryExample `json:"query_examples"`
+	ParamColumnName        string                `json:"param_column_name"`
+	ParamColumnType        string                `json:"param_column_type"`
+	ParamColumnDescription string                `json:"param_column_description"`
 }
 
 type AddToolColumn struct {
 	Name        string `json:"name"`
 	Type        string `json:"type"`
 	Description string `json:"description"`
-	IsSelected  bool   `json:"is_selected"`
 }
 
 type AddToolQueryExample struct {
@@ -90,7 +104,6 @@ func (h *handlerImpl) AddTool(w http.ResponseWriter, r *http.Request) {
 			Name:        c.Name,
 			Type:        c.Type,
 			Description: c.Description,
-			IsSelected:  c.IsSelected,
 		})
 	}
 
@@ -104,21 +117,23 @@ func (h *handlerImpl) AddTool(w http.ResponseWriter, r *http.Request) {
 
 	userID, err := r.Cookie("user_id")
 	if err != nil {
-		errMsg = "unable to get user_id cookie"
 		statusCode = http.StatusUnauthorized
-		slog.Error(errMsg,
+		slog.Error("unable to get user_id cookie",
 			slog.Int(commonerr.StatusCodeKey, statusCode),
 			slog.Any(commonerr.ErrKey, err))
-		http.Error(w, errMsg, statusCode)
+		http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 		return
 	}
 
 	err = h.metadataUsecase.AddTool(r.Context(), metadata.AddToolArgs{
-		UserID:          userID.Value,
-		ToolDescription: args.ToolDescription,
-		TableName:       args.TableName,
-		Columns:         columns,
-		QueryExamples:   queryExamples,
+		UserID:           userID.Value,
+		ToolDescription:  args.ToolDescription,
+		TableName:        args.TableName,
+		Columns:          columns,
+		QueryExamples:    queryExamples,
+		ParamName:        args.ParamColumnName,
+		ParamType:        args.ParamColumnType,
+		ParamDescription: args.ParamColumnDescription,
 	})
 	if err != nil {
 		errMsg = "unable to add tool"

@@ -68,18 +68,20 @@ func (u *usecaseImpl) GetUserToken(ctx context.Context, args GetUserTokenArgs) (
 }
 
 type AddToolArgs struct {
-	UserID          string
-	ToolDescription string
-	TableName       string
-	Columns         []AddToolColumn
-	QueryExamples   []AddToolQueryExample
+	UserID           string
+	ToolDescription  string
+	TableName        string
+	Columns          []AddToolColumn
+	QueryExamples    []AddToolQueryExample
+	ParamName        string
+	ParamType        string
+	ParamDescription string
 }
 
 type AddToolColumn struct {
 	Name        string
 	Type        string
 	Description string
-	IsSelected  bool
 }
 
 type AddToolQueryExample struct {
@@ -94,7 +96,6 @@ func (u *usecaseImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 			Name:        c.Name,
 			Type:        c.Type,
 			Description: c.Description,
-			IsSelected:  c.IsSelected,
 		})
 	}
 
@@ -107,11 +108,14 @@ func (u *usecaseImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 	}
 
 	err := u.pgRepo.AddTool(ctx, pgrepo.AddToolArgs{
-		UserID:          args.UserID,
-		ToolDescription: args.ToolDescription,
-		TableName:       args.TableName,
-		Columns:         columns,
-		QueryExamples:   queryExamples,
+		UserID:           args.UserID,
+		ToolDescription:  args.ToolDescription,
+		TableName:        args.TableName,
+		Columns:          columns,
+		QueryExamples:    queryExamples,
+		ParamName:        args.ParamName,
+		ParamType:        args.ParamType,
+		ParamDescription: args.ParamDescription,
 	})
 	if err != nil {
 		return fmt.Errorf("unable to add tool: %w", err)
@@ -125,17 +129,19 @@ type GetToolArgs struct {
 }
 
 type GetToolRow struct {
-	ToolDescription string
-	TableName       string
-	Columns         []GetToolColumn
-	QueryExample    []GetToolQueryExample
+	ToolDescription  string
+	TableName        string
+	Columns          []GetToolColumn
+	QueryExample     []GetToolQueryExample
+	ParamName        string
+	ParamType        string
+	ParamDescription string
 }
 
 type GetToolColumn struct {
 	Name        string
 	Type        string
 	Description string
-	IsSelected  string
 }
 
 type GetToolQueryExample struct {
@@ -159,7 +165,6 @@ func (u *usecaseImpl) GetTool(ctx context.Context, args GetToolArgs) ([]GetToolR
 				Name:        c.Name,
 				Type:        c.Type,
 				Description: c.Description,
-				IsSelected:  c.IsSelected,
 			})
 		}
 
@@ -172,10 +177,13 @@ func (u *usecaseImpl) GetTool(ctx context.Context, args GetToolArgs) ([]GetToolR
 		}
 
 		resultRows = append(resultRows, GetToolRow{
-			ToolDescription: r.ToolDescription,
-			TableName:       r.TableName,
-			Columns:         resultColumns,
-			QueryExample:    resultQueryExamples,
+			ToolDescription:  r.ToolDescription,
+			TableName:        r.TableName,
+			Columns:          resultColumns,
+			QueryExample:     resultQueryExamples,
+			ParamName:        r.ParamName,
+			ParamType:        r.ParamType,
+			ParamDescription: r.ParamDescription,
 		})
 	}
 

@@ -16,6 +16,7 @@ import (
 type GetAnswerArgs struct {
 	Prompt string
 	Param  string
+	UserID string
 }
 
 type GetAnswerResult struct {
@@ -38,6 +39,7 @@ func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAns
 		Token:  token,
 		Prompt: args.Prompt,
 		Param:  hashedParam,
+		UserID: args.UserID,
 	})
 	if err != nil {
 		return GetAnswerResult{}, fmt.Errorf("unable to get content from gemini adapter: %w", err)

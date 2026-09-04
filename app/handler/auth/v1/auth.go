@@ -9,10 +9,11 @@ import (
 
 	"github.com/gatsu420/kisu-be/app/usecase/metadata"
 	"github.com/gatsu420/kisu-be/common/commonerr"
-	"github.com/gatsu420/kisu-be/common/commonhttp"
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 )
+
+const userIDCookieName string = "user_id"
 
 func (h *handlerImpl) GetPermission(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
@@ -79,7 +80,15 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, commonhttp.NewCookiePlaceholder("user_id", addUserResult.UserID))
+	http.SetCookie(w, &http.Cookie{
+		Name:     userIDCookieName,
+		Value:    addUserResult.UserID,
+		Path:     "/",
+		MaxAge:   3600,
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
+	})
 	w.WriteHeader(http.StatusOK)
 }
 

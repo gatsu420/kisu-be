@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
+	"github.com/gatsu420/kisu-be/app/usecase/metadata"
 	"golang.org/x/oauth2"
 	"google.golang.org/genai"
 )
@@ -13,6 +15,7 @@ type GetContentArgs struct {
 	Token  *oauth2.Token
 	Prompt string
 	Param  string
+	UserID string
 }
 
 type GetContentResult struct {
@@ -21,9 +24,9 @@ type GetContentResult struct {
 }
 
 func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetContentResult, error) {
-	funcDeclarations := a.geminiToolWiring.Declare()
-	if len(funcDeclarations) == 0 {
-		return GetContentResult{}, fmt.Errorf("no tool registered")
+	funcDeclarations, err := a.getFuncDeclaration(ctx, args.UserID)
+	if err != nil {
+		return GetContentResult{}, fmt.Errorf("unable to construct function declarations: %w", err)
 	}
 
 	geminiTools := []*genai.Tool{
@@ -78,4 +81,53 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 		Content:              result,
 		StringifiedFuncCalls: stringifiedFuncCalls,
 	}, nil
+}
+
+func (a *adapterImpl) getFuncDeclaration(ctx context.Context, userID string) ([]*genai.FunctionDeclaration, error) {
+	tools, err := a.metadataUsecase.GetTool(ctx, metadata.GetToolArgs{
+		UserID: userID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get tools: %w", err)
+	}
+
+	funcDeclarations := []*genai.FunctionDeclaration{}
+	for _, t := range tools {
+		columns := []string{}
+		for _, c := range t.Columns {
+			columns = append(columns, fmt.Sprintf("- %v (%v): %v",
+				c.Name, c.Type, c.Description))
+		}
+
+		queryExamples := []string{}
+		for _, qe := range t.QueryExample {
+			queryExamples = append(queryExamples, fmt.Sprintf("- %v\n\t%v",
+				qe.Description,
+				strings.ReplaceAll(qe.Query,
+					fmt.Sprintf("from %v", t.TableName),
+					fmt.Sprintf("from %v_view", t.TableName))))
+		}
+
+		funcDeclarations = append(funcDeclarations, &genai.FunctionDeclaration{
+			Name: t.TableName,
+			Description: fmt.Sprintf(`
+				Run select-only query from %v_view to get information about: %v.
+
+				The view has these columns:
+				%v
+
+				Column %v doesn't need to be selected.
+
+				Sample query using the view:
+				%v
+				`,
+				t.TableName,
+				t.ToolDescription,
+				strings.Join(columns, "\n"),
+				t.ParamName,
+				strings.Join(queryExamples, "\n")),
+		})
+	}
+
+	return funcDeclarations, nil
 }
