@@ -51,7 +51,6 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 			to_base64(sha256(concat(email, "%v"))) hashed_email
 		from rumah-aya.some_event.merchants
 		`, args.TableName, salt))
-
 	_, err = hashQuery.Run(ctx)
 	if err != nil {
 		return CallToolResult{}, fmt.Errorf("unable to run job for hash query: %w", err)
@@ -72,7 +71,7 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 		}
 
 		if err != nil {
-			return CallToolResult{}, fmt.Errorf("row doesn't conform to item struct: %w", err)
+			return CallToolResult{}, fmt.Errorf("row doesn't conform to resultRow map: %w", err)
 		}
 
 		resultRows = append(resultRows, resultRow)

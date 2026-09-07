@@ -152,11 +152,15 @@ type GetToolArgs struct {
 	UserID string
 }
 
+type GetToolResult struct {
+	Rows []GetToolRow
+}
+
 type GetToolRow struct {
 	ToolDescription  string
 	TableName        string
 	Columns          []GetToolColumn
-	QueryExample     []GetToolQueryExample
+	QueryExamples    []GetToolQueryExample
 	ParamName        string
 	ParamType        string
 	ParamDescription string
@@ -173,7 +177,7 @@ type GetToolQueryExample struct {
 	Query       string
 }
 
-func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) ([]GetToolRow, error) {
+func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) (GetToolResult, error) {
 	rows, err := r.pool.Query(ctx, `
 		select
 			t.tool_description,
@@ -189,7 +193,7 @@ func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) ([]GetTo
 		where t.user_id = $1
 	`, args.UserID)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get tool: %w", err)
+		return GetToolResult{}, fmt.Errorf("unable to get tool: %w", err)
 	}
 	defer rows.Close()
 
@@ -200,13 +204,13 @@ func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) ([]GetTo
 			&resultRow.ToolDescription,
 			&resultRow.TableName,
 			&resultRow.Columns,
-			&resultRow.QueryExample,
+			&resultRow.QueryExamples,
 			&resultRow.ParamName,
 			&resultRow.ParamType,
 			&resultRow.ParamDescription,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("unable to read row when getting tool: %w", err)
+			return GetToolResult{}, fmt.Errorf("unable to read row when getting tool: %w", err)
 		}
 
 		resultRows = append(resultRows, resultRow)
@@ -214,8 +218,10 @@ func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) ([]GetTo
 
 	err = rows.Err()
 	if err != nil {
-		return nil, fmt.Errorf("unable to iterate rows when getting tool: %w", err)
+		return GetToolResult{}, fmt.Errorf("unable to iterate rows when getting tool: %w", err)
 	}
 
-	return resultRows, nil
+	return GetToolResult{
+		Rows: resultRows,
+	}, nil
 }
