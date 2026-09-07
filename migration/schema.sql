@@ -29,6 +29,37 @@ CREATE TABLE public.schema_migrations (
 
 
 --
+-- Name: tool; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tool (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    tool_description text NOT NULL,
+    table_name text NOT NULL,
+    columns jsonb NOT NULL,
+    query_examples jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: tool_param; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tool_param (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tool_id uuid NOT NULL,
+    name text NOT NULL,
+    type text NOT NULL,
+    description text NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
 -- Name: user_information; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -64,6 +95,22 @@ ALTER TABLE ONLY public.schema_migrations
 
 
 --
+-- Name: tool_param tool_param_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tool_param
+    ADD CONSTRAINT tool_param_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: tool tool_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tool
+    ADD CONSTRAINT tool_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: user_information user_information_email_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -95,6 +142,22 @@ CREATE UNIQUE INDEX user_id_index ON public.user_token USING btree (user_id);
 
 
 --
+-- Name: tool_param tool_param_tool_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tool_param
+    ADD CONSTRAINT tool_param_tool_id_fkey FOREIGN KEY (tool_id) REFERENCES public.tool(id);
+
+
+--
+-- Name: tool tool_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tool
+    ADD CONSTRAINT tool_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_information(id);
+
+
+--
 -- PostgreSQL database dump complete
 --
 
@@ -108,4 +171,6 @@ CREATE UNIQUE INDEX user_id_index ON public.user_token USING btree (user_id);
 INSERT INTO public.schema_migrations (version) VALUES
     ('20260807080210'),
     ('20260807163840'),
-    ('20260807165111');
+    ('20260807165111'),
+    ('20260812102043'),
+    ('20260905044803');

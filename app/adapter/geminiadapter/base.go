@@ -3,7 +3,6 @@ package geminiadapter
 import (
 	"context"
 
-	"github.com/gatsu420/kisu-be/app/llmtool/geminitool"
 	"github.com/gatsu420/kisu-be/app/usecase/metadata"
 	"google.golang.org/genai"
 )
@@ -13,15 +12,13 @@ type Adapter interface {
 }
 
 type adapterImpl struct {
-	genaiClient      *genai.Client
-	metadataUsecase  metadata.Usecase
-	geminiToolWiring geminitool.Wiring
+	genaiClient     *genai.Client
+	metadataUsecase metadata.Usecase
 }
 
-func NewAdapter(genaiClient *genai.Client, metadataUsecase metadata.Usecase, geminiToolWiring geminitool.Wiring) Adapter {
+func NewAdapter(genaiClient *genai.Client, metadataUsecase metadata.Usecase) Adapter {
 	return &adapterImpl{
-		genaiClient:      genaiClient,
-		metadataUsecase:  metadataUsecase,
-		geminiToolWiring: geminiToolWiring,
+		genaiClient:     genaiClient,
+		metadataUsecase: metadataUsecase,
 	}
 }

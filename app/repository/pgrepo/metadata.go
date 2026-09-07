@@ -119,7 +119,7 @@ func (r *repositoryImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 	}
 	defer trx.Rollback(ctx)
 
-	var toolID int
+	var toolID string
 	err = trx.QueryRow(ctx, `
 		insert into tool (
 			user_id, tool_description, table_name, columns, query_examples
@@ -138,6 +138,11 @@ func (r *repositoryImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 	`, toolID, args.ParamName, args.ParamType, args.ParamDescription)
 	if err != nil {
 		return fmt.Errorf("unable to add tool_param when adding tool: %w", err)
+	}
+
+	err = trx.Commit(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to commit transaction when adding tool: %w", err)
 	}
 
 	return nil
@@ -171,12 +176,17 @@ type GetToolQueryExample struct {
 func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) ([]GetToolRow, error) {
 	rows, err := r.pool.Query(ctx, `
 		select
-			tool_description,
-			table_name,
-			columns,
-			query_examples,
-		from tool
-		where user_id = $1
+			t.tool_description,
+			t.table_name,
+			t.columns,
+			t.query_examples,
+			tp.name param_name,
+			tp.type param_type,
+			tp.description param_description
+		from tool t
+		left join tool_param tp on
+			t.id = tp.tool_id
+		where t.user_id = $1
 	`, args.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get tool: %w", err)
@@ -191,6 +201,9 @@ func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) ([]GetTo
 			&resultRow.TableName,
 			&resultRow.Columns,
 			&resultRow.QueryExample,
+			&resultRow.ParamName,
+			&resultRow.ParamType,
+			&resultRow.ParamDescription,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("unable to read row when getting tool: %w", err)

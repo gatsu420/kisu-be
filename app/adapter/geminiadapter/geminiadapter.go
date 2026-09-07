@@ -24,13 +24,15 @@ type GetContentResult struct {
 }
 
 func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetContentResult, error) {
-	funcDeclarations, err := a.getFuncDeclaration(ctx, args.UserID)
+	funcDeclarations, err := a.getFuncDeclaration(ctx, getFuncDeclarationArgs{
+		userID: args.UserID,
+	})
 	if err != nil {
 		return GetContentResult{}, fmt.Errorf("unable to construct function declarations: %w", err)
 	}
 
 	geminiTools := []*genai.Tool{
-		{FunctionDeclarations: funcDeclarations},
+		{FunctionDeclarations: funcDeclarations.declarations},
 	}
 
 	geminiTemp := float32(0.5)
@@ -72,23 +74,35 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 		return GetContentResult{}, fmt.Errorf("unable to marshal tool args: %w", err)
 	}
 
-	result, err := a.geminiToolWiring.Call(ctx, funcCalls[0].Name, args.Token, funcCallArgs)
+	toolResult, err := a.metadataUsecase.CallTool(ctx, metadata.CallToolArgs{
+		TableName:   funcCalls[0].Name,
+		RawToolArgs: funcCallArgs,
+		Token:       args.Token,
+	})
 	if err != nil {
 		return GetContentResult{}, fmt.Errorf("unable to call tool: %w", err)
 	}
 
 	return GetContentResult{
-		Content:              result,
+		Content:              toolResult.Result,
 		StringifiedFuncCalls: stringifiedFuncCalls,
 	}, nil
 }
 
-func (a *adapterImpl) getFuncDeclaration(ctx context.Context, userID string) ([]*genai.FunctionDeclaration, error) {
+type getFuncDeclarationArgs struct {
+	userID string
+}
+
+type getFuncDeclarationResult struct {
+	declarations []*genai.FunctionDeclaration
+}
+
+func (a *adapterImpl) getFuncDeclaration(ctx context.Context, args getFuncDeclarationArgs) (getFuncDeclarationResult, error) {
 	tools, err := a.metadataUsecase.GetTool(ctx, metadata.GetToolArgs{
-		UserID: userID,
+		UserID: args.userID,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("unable to get tools: %w", err)
+		return getFuncDeclarationResult{}, fmt.Errorf("unable to get tools: %w", err)
 	}
 
 	funcDeclarations := []*genai.FunctionDeclaration{}
@@ -102,10 +116,7 @@ func (a *adapterImpl) getFuncDeclaration(ctx context.Context, userID string) ([]
 		queryExamples := []string{}
 		for _, qe := range t.QueryExample {
 			queryExamples = append(queryExamples, fmt.Sprintf("- %v\n\t%v",
-				qe.Description,
-				strings.ReplaceAll(qe.Query,
-					fmt.Sprintf("from %v", t.TableName),
-					fmt.Sprintf("from %v_view", t.TableName))))
+				qe.Description, qe.Query))
 		}
 
 		funcDeclarations = append(funcDeclarations, &genai.FunctionDeclaration{
@@ -126,8 +137,29 @@ func (a *adapterImpl) getFuncDeclaration(ctx context.Context, userID string) ([]
 				strings.Join(columns, "\n"),
 				t.ParamName,
 				strings.Join(queryExamples, "\n")),
+			Parameters: &genai.Schema{
+				Type: genai.TypeObject,
+				Properties: map[string]*genai.Schema{
+					t.ParamName: {
+						Type:        genai.TypeString,
+						Description: "Hashed param delimited by comma",
+					},
+					"query": {
+						Type:        genai.TypeString,
+						Description: "Query to get wanted information",
+					},
+				},
+				Required: []string{t.ParamName, "query"},
+			},
+			Response: &genai.Schema{
+				Type:        genai.TypeArray,
+				Items:       &genai.Schema{Type: genai.TypeString},
+				Description: "List of information returned by query, 1 item represents 1 row",
+			},
 		})
 	}
 
-	return funcDeclarations, nil
+	return getFuncDeclarationResult{
+		declarations: funcDeclarations,
+	}, nil
 }

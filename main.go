@@ -15,7 +15,6 @@ import (
 	"github.com/gatsu420/kisu-be/app/adapter/googleauthadapter"
 	answerhandlerv1 "github.com/gatsu420/kisu-be/app/handler/answer/v1"
 	authhandlerv1 "github.com/gatsu420/kisu-be/app/handler/auth/v1"
-	"github.com/gatsu420/kisu-be/app/llmtool/geminitool"
 	"github.com/gatsu420/kisu-be/app/middleware"
 	"github.com/gatsu420/kisu-be/app/repository/bqrepo"
 	"github.com/gatsu420/kisu-be/app/repository/pgrepo"
@@ -78,10 +77,6 @@ func startServer(ctx context.Context, config commonconfig.Config) *http.Server {
 	}
 	pgRepo := pgrepo.NewRepository(pgPool)
 
-	geminiTool := geminitool.NewTool(bqRepo)
-	geminiToolWiring := geminitool.NewWiring()
-	registerGeminiTools(geminiToolWiring, geminiTool)
-
 	genaiClient, err := genai.NewClient(ctx, &genai.ClientConfig{
 		APIKey: config.GeminiApiKey,
 	})
@@ -92,10 +87,10 @@ func startServer(ctx context.Context, config commonconfig.Config) *http.Server {
 		)
 	}
 
-	geminiAdapter := geminiadapter.NewAdapter(genaiClient, geminiToolWiring)
+	metadataUsecase := metadata.NewUsecase(pgRepo, bqRepo)
+	geminiAdapter := geminiadapter.NewAdapter(genaiClient, metadataUsecase)
 	stateRepo := staterepo.NewRepository()
 
-	metadataUsecase := metadata.NewUsecase(pgRepo)
 	answerUsecase := answer.NewUsecase(geminiAdapter)
 
 	authHandler := authhandlerv1.NewHandler(googleAuth, metadataUsecase, stateRepo)
@@ -114,10 +109,4 @@ func startServer(ctx context.Context, config commonconfig.Config) *http.Server {
 		Addr:    ":8080",
 		Handler: mux,
 	}
-}
-
-func registerGeminiTools(wiring geminitool.Wiring, tool geminitool.Tool) {
-	wiring.Add([]geminitool.WiringItem{
-		tool.GetSeller(),
-	})
 }

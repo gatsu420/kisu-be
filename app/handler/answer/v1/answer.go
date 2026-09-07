@@ -60,13 +60,13 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 }
 
 type AddToolArgs struct {
-	ToolDescription        string                `json:"tool_description"`
-	TableName              string                `json:"table_name"`
-	Columns                []AddToolColumn       `json:"columns"`
-	QueryExamples          []AddToolQueryExample `json:"query_examples"`
-	ParamColumnName        string                `json:"param_column_name"`
-	ParamColumnType        string                `json:"param_column_type"`
-	ParamColumnDescription string                `json:"param_column_description"`
+	ToolDescription  string                `json:"tool_description"`
+	TableName        string                `json:"table_name"`
+	Columns          []AddToolColumn       `json:"columns"`
+	QueryExamples    []AddToolQueryExample `json:"query_examples"`
+	ParamName        string                `json:"param_name"`
+	ParamType        string                `json:"param_type"`
+	ParamDescription string                `json:"param_description"`
 }
 
 type AddToolColumn struct {
@@ -131,9 +131,9 @@ func (h *handlerImpl) AddTool(w http.ResponseWriter, r *http.Request) {
 		TableName:        args.TableName,
 		Columns:          columns,
 		QueryExamples:    queryExamples,
-		ParamName:        args.ParamColumnName,
-		ParamType:        args.ParamColumnType,
-		ParamDescription: args.ParamColumnDescription,
+		ParamName:        args.ParamName,
+		ParamType:        args.ParamType,
+		ParamDescription: args.ParamDescription,
 	})
 	if err != nil {
 		errMsg = "unable to add tool"

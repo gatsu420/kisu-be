@@ -2,8 +2,10 @@ package metadata
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
+	"github.com/gatsu420/kisu-be/app/repository/bqrepo"
 	"github.com/gatsu420/kisu-be/app/repository/pgrepo"
 	"golang.org/x/oauth2"
 )
@@ -188,4 +190,34 @@ func (u *usecaseImpl) GetTool(ctx context.Context, args GetToolArgs) ([]GetToolR
 	}
 
 	return resultRows, nil
+}
+
+type CallToolArgs struct {
+	TableName   string
+	RawToolArgs []byte
+	Token       *oauth2.Token
+}
+
+type CallToolResult struct {
+	Result json.RawMessage
+}
+
+func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallToolResult, error) {
+	result, err := u.bqRepo.CallTool(ctx, bqrepo.CallToolArgs{
+		TableName:   args.TableName,
+		RawToolArgs: args.RawToolArgs,
+		Token:       args.Token,
+	})
+	if err != nil {
+		return CallToolResult{}, err
+	}
+
+	marshaledRows, err := json.Marshal(result.Rows)
+	if err != nil {
+		return CallToolResult{}, err
+	}
+
+	return CallToolResult{
+		Result: marshaledRows,
+	}, nil
 }
