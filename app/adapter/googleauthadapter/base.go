@@ -2,7 +2,6 @@ package googleauthadapter
 
 import (
 	"context"
-	"net/http"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -10,10 +9,10 @@ import (
 )
 
 type Adapter interface {
-	GetPermissionLink(state string) string
-	Exchange(ctx context.Context, code string) (*oauth2.Token, error)
-	Client(ctx context.Context, token *oauth2.Token) *http.Client
-	TokenSource(ctx context.Context, token *oauth2.Token) oauth2.TokenSource
+	GetPermissionLink(args GetPermissionLinkArgs) GetPermissionLinkResult
+	Exchange(ctx context.Context, args ExchangeArgs) (ExchangeResult, error)
+	Client(ctx context.Context, args ClientArgs) ClientResult
+	TokenSource(ctx context.Context, args TokenSourceArgs) TokenSourceResult
 }
 
 type adapterImpl struct {

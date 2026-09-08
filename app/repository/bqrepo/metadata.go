@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"cloud.google.com/go/bigquery"
+	"github.com/gatsu420/kisu-be/app/adapter/googleauthadapter"
 	"github.com/gatsu420/kisu-be/common/commonhash"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/iterator"
@@ -27,8 +28,10 @@ type toolArgs struct {
 }
 
 func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallToolResult, error) {
-	googleAuthClient := r.googleAuth.Client(ctx, args.Token)
-	bqClient, err := bigquery.NewClient(ctx, r.projectID, option.WithHTTPClient(googleAuthClient))
+	googleAuthClient := r.googleAuth.Client(ctx, googleauthadapter.ClientArgs{
+		Token: args.Token,
+	})
+	bqClient, err := bigquery.NewClient(ctx, r.projectID, option.WithHTTPClient(googleAuthClient.Client))
 	if err != nil {
 		return CallToolResult{}, fmt.Errorf("unable to create bigquery client: %w", err)
 	}

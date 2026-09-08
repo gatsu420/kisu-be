@@ -106,21 +106,21 @@ func (a *adapterImpl) getFuncDeclaration(ctx context.Context, args getFuncDeclar
 	}
 
 	funcDeclarations := []*genai.FunctionDeclaration{}
-	for _, t := range tools {
+	for _, r := range tools.Rows {
 		columns := []string{}
-		for _, c := range t.Columns {
+		for _, c := range r.Columns {
 			columns = append(columns, fmt.Sprintf("- %v (%v): %v",
 				c.Name, c.Type, c.Description))
 		}
 
 		queryExamples := []string{}
-		for _, qe := range t.QueryExample {
+		for _, qe := range r.QueryExamples {
 			queryExamples = append(queryExamples, fmt.Sprintf("- %v\n\t%v",
 				qe.Description, qe.Query))
 		}
 
 		funcDeclarations = append(funcDeclarations, &genai.FunctionDeclaration{
-			Name: t.TableName,
+			Name: r.TableName,
 			Description: fmt.Sprintf(`
 				Run select-only query from %v_view to get information about: %v.
 
@@ -132,15 +132,15 @@ func (a *adapterImpl) getFuncDeclaration(ctx context.Context, args getFuncDeclar
 				Sample query using the view:
 				%v
 				`,
-				t.TableName,
-				t.ToolDescription,
+				r.TableName,
+				r.ToolDescription,
 				strings.Join(columns, "\n"),
-				t.ParamName,
+				r.ParamName,
 				strings.Join(queryExamples, "\n")),
 			Parameters: &genai.Schema{
 				Type: genai.TypeObject,
 				Properties: map[string]*genai.Schema{
-					t.ParamName: {
+					r.ParamName: {
 						Type:        genai.TypeString,
 						Description: "Hashed param delimited by comma",
 					},
@@ -149,7 +149,7 @@ func (a *adapterImpl) getFuncDeclaration(ctx context.Context, args getFuncDeclar
 						Description: "Query to get wanted information",
 					},
 				},
-				Required: []string{t.ParamName, "query"},
+				Required: []string{r.ParamName, "query"},
 			},
 			Response: &genai.Schema{
 				Type:        genai.TypeArray,

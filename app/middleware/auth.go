@@ -41,8 +41,10 @@ func RefreshToken(pgRepo pgrepo.Repository, googleAuth googleauthadapter.Adapter
 				return
 			}
 
-			tokenSource := googleAuth.TokenSource(r.Context(), tokenResult.Token)
-			freshToken, err := tokenSource.Token()
+			tokenSource := googleAuth.TokenSource(r.Context(), googleauthadapter.TokenSourceArgs{
+				Token: tokenResult.Token,
+			})
+			freshToken, err := tokenSource.Source.Token()
 			if err != nil {
 				statusCode = http.StatusInternalServerError
 				slog.Error("unable to refresh token",
