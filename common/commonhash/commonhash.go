@@ -1,7 +1,6 @@
 package commonhash
 
 import (
-	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 )
@@ -31,11 +30,4 @@ func HashStringSlice(slc []string, salt string) []string {
 	}
 
 	return result
-}
-
-func HashString(secret []byte, str string, salt string) string {
-	hash := hmac.New(sha256.New, secret)
-	hash.Write([]byte(str + salt))
-
-	return base64.StdEncoding.EncodeToString(hash.Sum(nil))
 }
