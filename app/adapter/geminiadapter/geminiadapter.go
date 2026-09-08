@@ -115,14 +115,17 @@ func (a *adapterImpl) getFuncDeclaration(ctx context.Context, args getFuncDeclar
 
 		queryExamples := []string{}
 		for _, qe := range r.QueryExamples {
+			query := strings.ReplaceAll(qe.Query,
+				r.TableName,
+				fmt.Sprintf("%v_hashed_filter", r.TableName))
 			queryExamples = append(queryExamples, fmt.Sprintf("- %v\n\t%v",
-				qe.Description, qe.Query))
+				qe.Description, query))
 		}
 
 		funcDeclarations = append(funcDeclarations, &genai.FunctionDeclaration{
 			Name: r.TableName,
 			Description: fmt.Sprintf(`
-				Run select-only query from %v_view to get information about: %v.
+				Run select-only query from %v_hashed_filter to get information about: %v.
 
 				The view has these columns:
 				%v

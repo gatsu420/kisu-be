@@ -42,18 +42,28 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 		return CallToolResult{}, fmt.Errorf("unable to unmarshal tool args: %w", err)
 	}
 
+	filter, ok := ctx.Value(commonhash.FilterCtxKey).(string)
+	if !ok {
+		return CallToolResult{}, fmt.Errorf("unable to get filter from context")
+	}
+
 	salt, ok := ctx.Value(commonhash.SaltCtxKey).(string)
 	if !ok {
 		return CallToolResult{}, fmt.Errorf("unable to get salt from context")
 	}
 
 	hashQuery := bqClient.Query(fmt.Sprintf(`
-		create or replace view %v as
+		create or replace view %v_hashed_filter as
 		select
-			* except(email),
-			to_base64(sha256(concat(email, "%v"))) hashed_email
-		from rumah-aya.some_event.merchants
-		`, args.TableName, salt))
+			* except(%v),
+			to_base64(sha256(concat(%v, "%v"))) hashed_%v
+		from %v
+		`, args.TableName,
+		filter,
+		filter,
+		salt,
+		filter,
+		args.TableName))
 	_, err = hashQuery.Run(ctx)
 	if err != nil {
 		return CallToolResult{}, fmt.Errorf("unable to run job for hash query: %w", err)

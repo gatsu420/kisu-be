@@ -102,14 +102,14 @@ type AddToolArgs struct {
 }
 
 type AddToolColumn struct {
-	Name        string `db:"name"`
-	Type        string `db:"type"`
-	Description string `db:"description"`
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
 }
 
 type AddToolQueryExample struct {
-	Description string `db:"description"`
-	Query       string `db:"query"`
+	Description string `json:"description"`
+	Query       string `json:"query"`
 }
 
 func (r *repositoryImpl) AddTool(ctx context.Context, args AddToolArgs) error {

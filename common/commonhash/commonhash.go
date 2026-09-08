@@ -7,7 +7,10 @@ import (
 
 type ctxKey int
 
-const SaltCtxKey ctxKey = 0
+const (
+	FilterCtxKey ctxKey = iota
+	SaltCtxKey
+)
 
 func HashStringSlice(slc []string, salt string) []string {
 	var result []string

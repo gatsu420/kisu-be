@@ -13,11 +13,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type GetAnswerArgs struct {
-	Prompt string `json:"prompt"`
-	Param  string `json:"param"`
-}
-
 func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
@@ -33,8 +28,15 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	salt := uuid.New().String()
-	ctx := context.WithValue(r.Context(), commonhash.SaltCtxKey, salt)
+	// The less uglier way is to construct ctx value as struct, but
+	// it's no biggie for now.
+	ctx := context.WithValue(r.Context(),
+		commonhash.FilterCtxKey,
+		r.URL.Query().Get("filter"))
+	ctx = context.WithValue(ctx,
+		commonhash.SaltCtxKey,
+		uuid.New().String())
+
 	prompt := r.URL.Query().Get("prompt")
 	param := r.URL.Query().Get("param")
 	promptAnswer, err := h.answerUsecase.GetAnswer(ctx, answer.GetAnswerArgs{
