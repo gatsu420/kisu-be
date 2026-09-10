@@ -7,8 +7,10 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/gatsu420/kisu-be/app/adapter/googleauthadapter"
 	"github.com/gatsu420/kisu-be/app/usecase/metadata"
 	"github.com/gatsu420/kisu-be/common/commonerr"
+	"github.com/gatsu420/kisu-be/common/commonhttp"
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 )
@@ -19,8 +21,10 @@ func (h *handlerImpl) GetPermission(w http.ResponseWriter, r *http.Request) {
 	state := uuid.New().String()
 	h.stateRepo.Save(state)
 
-	permissionLink := h.googleAuth.GetPermissionLink(state)
-	http.Redirect(w, r, permissionLink, http.StatusFound)
+	permissionLink := h.googleAuth.GetPermissionLink(googleauthadapter.GetPermissionLinkArgs{
+		State: state,
+	})
+	http.Redirect(w, r, permissionLink.Link, http.StatusFound)
 }
 
 func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
@@ -30,7 +34,7 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 	errUrlParam := r.URL.Query().Get("error")
 	if errUrlParam != "" {
 		slog.Error("auth server denied request",
-			slog.Int(commonerr.StatusCodeKey, http.StatusBadRequest))
+			slog.Int(commonerr.StatusCodeLogKey, http.StatusBadRequest))
 		return
 	}
 
@@ -38,61 +42,66 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 	stateExistence := h.stateRepo.CheckExistence(state)
 	if !stateExistence {
 		slog.Error("state doesn't exist",
-			slog.Int(commonerr.StatusCodeKey, http.StatusBadRequest))
+			slog.Int(commonerr.StatusCodeLogKey, http.StatusBadRequest))
 		return
 	}
 
-	token, err := h.googleAuth.Exchange(r.Context(), r.URL.Query().Get("code"))
+	token, err := h.googleAuth.Exchange(r.Context(), googleauthadapter.ExchangeArgs{
+		Code: r.URL.Query().Get("code"),
+	})
 	if err != nil {
 		slog.Error("unable to exchange code from auth server",
-			slog.Int(commonerr.StatusCodeKey, http.StatusInternalServerError))
+			slog.Int(commonerr.StatusCodeLogKey, http.StatusInternalServerError))
 		return
 	}
 
-	email, err := h.getEmail(context.Background(), token)
+	email, err := h.getEmail(context.Background(), token.Token)
 	if err != nil {
 		errMsg = "unable to get email from google auth"
-		slog.Error(errMsg, slog.Int(commonerr.StatusCodeKey, http.StatusInternalServerError),
-			slog.Any(commonerr.ErrKey, err))
+		slog.Error(errMsg, slog.Int(commonerr.StatusCodeLogKey, http.StatusInternalServerError),
+			slog.Any(commonerr.ErrLogKey, err))
 		return
 	}
 
-	userResult, err := h.userUsecase.InsertUser(r.Context(), metadata.InsertUserArgs{
+	addUserResult, err := h.metadataUsecase.AddUser(r.Context(), metadata.AddUserArgs{
 		Email: email,
 	})
 	if err != nil {
-		slog.Error("unable to insert user",
-			slog.Int(commonerr.StatusCodeKey, http.StatusInternalServerError),
-			slog.Any(commonerr.ErrKey, err))
+		slog.Error("unable to add user",
+			slog.Int(commonerr.StatusCodeLogKey, http.StatusInternalServerError),
+			slog.Any(commonerr.ErrLogKey, err))
 		return
 	}
 
-	err = h.userUsecase.InsertUserToken(r.Context(), metadata.InsertUserTokenArgs{
-		UserID: userResult.UserID,
-		Token:  token,
+	err = h.metadataUsecase.AddUserToken(r.Context(), metadata.AddUserTokenArgs{
+		UserID: addUserResult.UserID,
+		Token:  token.Token,
 	})
 	if err != nil {
-		slog.Error("unable to insert user token",
-			slog.Int(commonerr.StatusCodeKey, http.StatusInternalServerError),
-			slog.Any(commonerr.ErrKey, err))
+		slog.Error("unable to add user token",
+			slog.Int(commonerr.StatusCodeLogKey, http.StatusInternalServerError),
+			slog.Any(commonerr.ErrLogKey, err))
 		return
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:     "user_id",
-		Value:    userResult.UserID,
-		Path:     "/",
-		MaxAge:   3600,
-		HttpOnly: true,
-		Secure:   false,
-		SameSite: http.SameSiteStrictMode,
+		Name:     commonhttp.UserIDCookieName,
+		Value:    addUserResult.UserID,
+		Path:     commonhttp.CookiePath,
+		MaxAge:   commonhttp.CookieMaxAge,
+		HttpOnly: commonhttp.CookieHttpOnly,
+		Secure:   commonhttp.CookieSecure,
+		SameSite: commonhttp.CookieSameSite,
 	})
+
 	w.WriteHeader(http.StatusOK)
 }
 
 func (h *handlerImpl) getEmail(ctx context.Context, token *oauth2.Token) (string, error) {
-	googleAuthClient := h.googleAuth.Client(ctx, token)
-	resp, err := googleAuthClient.Get("https://openidconnect.googleapis.com/v1/userinfo")
+	googleAuthClient := h.googleAuth.Client(ctx, googleauthadapter.ClientArgs{
+		Token: token,
+	})
+	resp, err := googleAuthClient.Client.Get("https://openidconnect.googleapis.com/v1/userinfo")
 	if err != nil {
 		return "", fmt.Errorf("unable to get user info from google auth: %w", err)
 	}

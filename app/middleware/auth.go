@@ -2,50 +2,81 @@ package middleware
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 
 	"github.com/gatsu420/kisu-be/app/adapter/googleauthadapter"
-	"github.com/gatsu420/kisu-be/app/repository/pgrepo"
+	"github.com/gatsu420/kisu-be/app/usecase/metadata"
+	"github.com/gatsu420/kisu-be/common/commonctx"
+	"github.com/gatsu420/kisu-be/common/commonerr"
+	"github.com/gatsu420/kisu-be/common/commonhttp"
 )
 
-type ctxKey int
-
-const TokenCtxKey ctxKey = iota
-
-func RefreshToken(pgRepo pgrepo.Repository, googleAuth googleauthadapter.Adapter) func(http.Handler) http.Handler {
+func RefreshToken(metadataUsecase metadata.Usecase, googleAuth googleauthadapter.Adapter) func(http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			cookie, err := r.Cookie("user_id")
+			var statusCode int
+
+			userID, err := r.Cookie("user_id")
 			if err != nil {
-				http.Error(w, "request is unauthorized", http.StatusUnauthorized)
+				statusCode = http.StatusUnauthorized
+				slog.Error("unable to find user_id cookie",
+					slog.Int(commonerr.StatusCodeLogKey, statusCode),
+					slog.Any(commonerr.ErrLogKey, err))
+				http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 				return
 			}
+			ctx := context.WithValue(r.Context(), commonctx.UserIDCtxKey, userID)
 
-			tokenResult, err := pgRepo.GetUserToken(r.Context(), pgrepo.GetUserTokenArgs{
-				UserID: cookie.Value,
+			token, err := metadataUsecase.GetUserToken(ctx, metadata.GetUserTokenArgs{
+				UserID: userID.Value,
 			})
 			if err != nil {
-				http.Error(w, "request is unauthorized", http.StatusUnauthorized)
+				statusCode = http.StatusInternalServerError
+				slog.Error("unable to get user token",
+					slog.Int(commonerr.StatusCodeLogKey, statusCode),
+					slog.Any(commonerr.ErrLogKey, err))
+				http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 				return
 			}
 
-			tokenSource := googleAuth.TokenSource(r.Context(), tokenResult.Token)
-			freshToken, err := tokenSource.Token()
+			tokenSource := googleAuth.TokenSource(ctx, googleauthadapter.TokenSourceArgs{
+				Token: token.Token,
+			})
+			freshToken, err := tokenSource.Source.Token()
 			if err != nil {
-				http.Error(w, "unable to refresh token", http.StatusInternalServerError)
+				statusCode = http.StatusInternalServerError
+				slog.Error("unable to refresh token",
+					slog.Int(commonerr.StatusCodeLogKey, statusCode),
+					slog.Any(commonerr.ErrLogKey, err))
+				http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 				return
 			}
+			ctx = context.WithValue(ctx, commonctx.TokenCtxKey, freshToken)
 
-			err = pgRepo.InsertUserToken(r.Context(), pgrepo.InsertUserTokenArgs{
-				UserID: cookie.Value,
+			err = metadataUsecase.AddUserToken(ctx, metadata.AddUserTokenArgs{
+				UserID: userID.Value,
 				Token:  freshToken,
 			})
 			if err != nil {
-				http.Error(w, "unable to insert user token", http.StatusInternalServerError)
+				statusCode = http.StatusInternalServerError
+				slog.Error("unable to add user token",
+					slog.Int(commonerr.StatusCodeLogKey, statusCode),
+					slog.Any(commonerr.ErrLogKey, err))
+				http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), TokenCtxKey, freshToken)
+			http.SetCookie(w, &http.Cookie{
+				Name:     commonhttp.UserIDCookieName,
+				Value:    userID.Value,
+				Path:     commonhttp.CookiePath,
+				MaxAge:   commonhttp.CookieMaxAge,
+				HttpOnly: commonhttp.CookieHttpOnly,
+				Secure:   commonhttp.CookieSecure,
+				SameSite: commonhttp.CookieSameSite,
+			})
+
 			h.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

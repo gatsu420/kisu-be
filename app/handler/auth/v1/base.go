@@ -14,15 +14,15 @@ type Handler interface {
 }
 
 type handlerImpl struct {
-	googleAuth  googleauthadapter.Adapter
-	userUsecase metadata.Usecase
-	stateRepo   staterepo.Repository
+	googleAuth      googleauthadapter.Adapter
+	metadataUsecase metadata.Usecase
+	stateRepo       staterepo.Repository
 }
 
-func NewHandler(googleAuth googleauthadapter.Adapter, userUsecase metadata.Usecase, stateRepo staterepo.Repository) Handler {
+func NewHandler(googleAuth googleauthadapter.Adapter, metadataUsecase metadata.Usecase, stateRepo staterepo.Repository) Handler {
 	return &handlerImpl{
-		googleAuth:  googleAuth,
-		userUsecase: userUsecase,
-		stateRepo:   stateRepo,
+		googleAuth:      googleAuth,
+		metadataUsecase: metadataUsecase,
+		stateRepo:       stateRepo,
 	}
 }

@@ -3,12 +3,11 @@ package bqrepo
 import (
 	"context"
 
-	"cloud.google.com/go/bigquery"
 	"github.com/gatsu420/kisu-be/app/adapter/googleauthadapter"
 )
 
 type Repository interface {
-	GetSeller(ctx context.Context, args GetSellerArgs) ([]map[string]bigquery.Value, error)
+	CallTool(ctx context.Context, args CallToolArgs) (CallToolResult, error)
 }
 
 type repositoryImpl struct {

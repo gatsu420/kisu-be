@@ -1,6 +1,8 @@
 package commonerr
 
 const (
-	StatusCodeKey = "status_code"
-	ErrKey        = "err"
+	StatusCodeLogKey = "status_code"
+	ErrLogKey        = "err"
 )
+
+const UnauthorizedRequestErrMsg = "request is unauthorized"

@@ -8,7 +8,7 @@ import (
 	"unicode"
 
 	"github.com/gatsu420/kisu-be/app/adapter/geminiadapter"
-	"github.com/gatsu420/kisu-be/app/middleware"
+	"github.com/gatsu420/kisu-be/common/commonctx"
 	"github.com/gatsu420/kisu-be/common/commonhash"
 	"golang.org/x/oauth2"
 )
@@ -16,6 +16,7 @@ import (
 type GetAnswerArgs struct {
 	Prompt string
 	Param  string
+	UserID string
 }
 
 type GetAnswerResult struct {
@@ -29,7 +30,7 @@ func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAns
 		return GetAnswerResult{}, err
 	}
 
-	token, ok := ctx.Value(middleware.TokenCtxKey).(*oauth2.Token)
+	token, ok := ctx.Value(commonctx.TokenCtxKey).(*oauth2.Token)
 	if !ok {
 		return GetAnswerResult{}, fmt.Errorf("token is not found in context")
 	}
@@ -38,6 +39,7 @@ func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAns
 		Token:  token,
 		Prompt: args.Prompt,
 		Param:  hashedParam,
+		UserID: args.UserID,
 	})
 	if err != nil {
 		return GetAnswerResult{}, fmt.Errorf("unable to get content from gemini adapter: %w", err)
@@ -53,7 +55,7 @@ func (u *usecaseImpl) hashParam(ctx context.Context, param string) (string, erro
 	paramParts := strings.FieldsFunc(param, func(r rune) bool {
 		return r == ',' || unicode.IsSpace(r)
 	})
-	salt, ok := ctx.Value(commonhash.SaltCtxKey).(string)
+	salt, ok := ctx.Value(commonctx.SaltCtxKey).(string)
 	if !ok {
 		return "", fmt.Errorf("unable to get salt from context")
 	}
