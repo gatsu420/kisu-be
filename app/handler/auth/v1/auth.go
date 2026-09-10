@@ -34,7 +34,7 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 	errUrlParam := r.URL.Query().Get("error")
 	if errUrlParam != "" {
 		slog.Error("auth server denied request",
-			slog.Int(commonerr.StatusCodeKey, http.StatusBadRequest))
+			slog.Int(commonerr.StatusCodeLogKey, http.StatusBadRequest))
 		return
 	}
 
@@ -42,7 +42,7 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 	stateExistence := h.stateRepo.CheckExistence(state)
 	if !stateExistence {
 		slog.Error("state doesn't exist",
-			slog.Int(commonerr.StatusCodeKey, http.StatusBadRequest))
+			slog.Int(commonerr.StatusCodeLogKey, http.StatusBadRequest))
 		return
 	}
 
@@ -51,15 +51,15 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		slog.Error("unable to exchange code from auth server",
-			slog.Int(commonerr.StatusCodeKey, http.StatusInternalServerError))
+			slog.Int(commonerr.StatusCodeLogKey, http.StatusInternalServerError))
 		return
 	}
 
 	email, err := h.getEmail(context.Background(), token.Token)
 	if err != nil {
 		errMsg = "unable to get email from google auth"
-		slog.Error(errMsg, slog.Int(commonerr.StatusCodeKey, http.StatusInternalServerError),
-			slog.Any(commonerr.ErrKey, err))
+		slog.Error(errMsg, slog.Int(commonerr.StatusCodeLogKey, http.StatusInternalServerError),
+			slog.Any(commonerr.ErrLogKey, err))
 		return
 	}
 
@@ -68,8 +68,8 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		slog.Error("unable to add user",
-			slog.Int(commonerr.StatusCodeKey, http.StatusInternalServerError),
-			slog.Any(commonerr.ErrKey, err))
+			slog.Int(commonerr.StatusCodeLogKey, http.StatusInternalServerError),
+			slog.Any(commonerr.ErrLogKey, err))
 		return
 	}
 
@@ -79,8 +79,8 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		slog.Error("unable to add user token",
-			slog.Int(commonerr.StatusCodeKey, http.StatusInternalServerError),
-			slog.Any(commonerr.ErrKey, err))
+			slog.Int(commonerr.StatusCodeLogKey, http.StatusInternalServerError),
+			slog.Any(commonerr.ErrLogKey, err))
 		return
 	}
 

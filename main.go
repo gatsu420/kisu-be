@@ -32,8 +32,8 @@ func main() {
 	err := runServer()
 	if err != nil {
 		slog.Error(err.Error(),
-			slog.Int(commonerr.StatusCodeKey, http.StatusInternalServerError),
-			slog.Any(commonerr.ErrKey, err))
+			slog.Int(commonerr.StatusCodeLogKey, http.StatusInternalServerError),
+			slog.Any(commonerr.ErrLogKey, err))
 		os.Exit(1)
 	}
 }

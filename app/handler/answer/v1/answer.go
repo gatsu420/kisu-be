@@ -22,7 +22,7 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		statusCode = http.StatusUnauthorized
 		slog.Error("unable to get user_id cookie",
-			slog.Int(commonerr.StatusCodeKey, statusCode))
+			slog.Int(commonerr.StatusCodeLogKey, statusCode))
 		http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 		return
 	}
@@ -45,8 +45,8 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		errMsg = "unable to get answer"
-		slog.Error(errMsg, slog.Int(commonerr.StatusCodeKey, http.StatusInternalServerError),
-			slog.Any(commonerr.ErrKey, err))
+		slog.Error(errMsg, slog.Int(commonerr.StatusCodeLogKey, http.StatusInternalServerError),
+			slog.Any(commonerr.ErrLogKey, err))
 		http.Error(w, errMsg, http.StatusInternalServerError)
 		return
 	}
@@ -54,8 +54,8 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(promptAnswer)
 	if err != nil {
 		errMsg = "unable to write response"
-		slog.Error(errMsg, slog.Int(commonerr.StatusCodeKey, http.StatusInternalServerError),
-			slog.Any(commonerr.ErrKey, err))
+		slog.Error(errMsg, slog.Int(commonerr.StatusCodeLogKey, http.StatusInternalServerError),
+			slog.Any(commonerr.ErrLogKey, err))
 		http.Error(w, errMsg, http.StatusBadRequest)
 	}
 }
@@ -93,8 +93,8 @@ func (h *handlerImpl) AddTool(w http.ResponseWriter, r *http.Request) {
 		errMsg = "unable to decode request body"
 		statusCode = http.StatusBadRequest
 		slog.Error(errMsg,
-			slog.Int(commonerr.StatusCodeKey, statusCode),
-			slog.Any(commonerr.ErrKey, err))
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.Any(commonerr.ErrLogKey, err))
 		http.Error(w, errMsg, statusCode)
 		return
 	}
@@ -120,7 +120,7 @@ func (h *handlerImpl) AddTool(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		statusCode = http.StatusUnauthorized
 		slog.Error("unable to get user_id cookie",
-			slog.Int(commonerr.StatusCodeKey, statusCode))
+			slog.Int(commonerr.StatusCodeLogKey, statusCode))
 		http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 		return
 	}
@@ -139,8 +139,8 @@ func (h *handlerImpl) AddTool(w http.ResponseWriter, r *http.Request) {
 		errMsg = "unable to add tool"
 		statusCode = http.StatusInternalServerError
 		slog.Error(errMsg,
-			slog.Int(commonerr.StatusCodeKey, statusCode),
-			slog.Any(commonerr.ErrKey, err))
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.Any(commonerr.ErrLogKey, err))
 		http.Error(w, errMsg, statusCode)
 		return
 	}
