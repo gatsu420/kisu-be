@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"cloud.google.com/go/bigquery"
 	"github.com/gatsu420/kisu-be/app/adapter/googleauthadapter"
@@ -35,6 +36,7 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 	if err != nil {
 		return CallToolResult{}, fmt.Errorf("unable to create bigquery client: %w", err)
 	}
+	defer bqClient.Close()
 
 	var toolArgs toolArgs
 	err = json.Unmarshal(args.RawToolArgs, &toolArgs)
@@ -52,33 +54,53 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 		return CallToolResult{}, fmt.Errorf("unable to get salt from context")
 	}
 
-	hashQuery := bqClient.Query(fmt.Sprintf(`
-		create view %v_hashed_filter as
-		select
-			* except(%v),
-			to_base64(sha256(concat(%v, "%v"))) hashed_%v
-		from %v
-		`, args.TableName,
-		filter,
-		filter,
-		salt,
-		filter,
-		args.TableName))
-	_, err = hashQuery.Run(ctx)
-	if err != nil {
-		return CallToolResult{}, fmt.Errorf("unable to run job for hash query: %w", err)
+	tableNameParts := strings.Split(args.TableName, ".")
+	if len(tableNameParts) != 3 {
+		return CallToolResult{}, fmt.Errorf("table name must be in the form of project.dataset.table")
 	}
 
-	getterQuery := bqClient.Query(toolArgs.Query)
-	rows, err := getterQuery.Read(ctx)
+	err = bqClient.Dataset(tableNameParts[1]).
+		Table(tableNameParts[2]+"_hashed_filter").
+		Create(ctx, &bigquery.TableMetadata{
+			ViewQuery: fmt.Sprintf(`
+			select
+				* except(%v),
+				to_base64(sha256(concat(%v, "%v"))) hashed_%v
+			from %v
+			`, filter,
+				filter,
+				salt,
+				filter,
+				args.TableName),
+		})
 	if err != nil {
-		return CallToolResult{}, fmt.Errorf("unable to run job for getter query: %w", err)
+		return CallToolResult{}, fmt.Errorf("unable to create view containing hashed filter: %v", err)
+	}
+
+	selectJob, err := bqClient.Query(toolArgs.Query).
+		Run(ctx)
+	if err != nil {
+		return CallToolResult{}, fmt.Errorf("unable to run select job from hashed filter view: %w", err)
+	}
+
+	selectJobStatus, err := selectJob.Wait(ctx)
+	if err != nil {
+		return CallToolResult{}, fmt.Errorf("select job has failed: %w", err)
+	}
+
+	if selectJobStatus.Err() != nil {
+		return CallToolResult{}, fmt.Errorf("select job has error: %w", selectJobStatus.Err())
+	}
+
+	selectJobRows, err := selectJob.Read(ctx)
+	if err != nil {
+		return CallToolResult{}, fmt.Errorf("unable to get result of select job: %w", err)
 	}
 
 	resultRows := []map[string]bigquery.Value{}
 	for {
 		var resultRow map[string]bigquery.Value
-		err := rows.Next(&resultRow)
+		err := selectJobRows.Next(&resultRow)
 		if err == iterator.Done {
 			break
 		}
@@ -88,6 +110,13 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 		}
 
 		resultRows = append(resultRows, resultRow)
+	}
+
+	err = bqClient.Dataset(tableNameParts[1]).
+		Table(tableNameParts[2] + "_hashed_filter").
+		Delete(ctx)
+	if err != nil {
+		return CallToolResult{}, fmt.Errorf("unable to drop hashed filter view: %w", err)
 	}
 
 	return CallToolResult{
