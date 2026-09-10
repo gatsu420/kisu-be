@@ -53,7 +53,7 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 	}
 
 	hashQuery := bqClient.Query(fmt.Sprintf(`
-		create or replace view %v_hashed_filter as
+		create view %v_hashed_filter as
 		select
 			* except(%v),
 			to_base64(sha256(concat(%v, "%v"))) hashed_%v
