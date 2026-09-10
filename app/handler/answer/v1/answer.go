@@ -6,11 +6,10 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/gatsu420/kisu-be/app/middleware"
 	"github.com/gatsu420/kisu-be/app/usecase/answer"
 	"github.com/gatsu420/kisu-be/app/usecase/metadata"
+	"github.com/gatsu420/kisu-be/common/commonctx"
 	"github.com/gatsu420/kisu-be/common/commonerr"
-	"github.com/gatsu420/kisu-be/common/commonhash"
 	"github.com/google/uuid"
 )
 
@@ -19,7 +18,7 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 
 	var errMsg string
 	var statusCode int
-	userID, ok := r.Context().Value(middleware.UserIDCtxKey).(*http.Cookie)
+	userID, ok := r.Context().Value(commonctx.UserIDCtxKey).(*http.Cookie)
 	if !ok {
 		statusCode = http.StatusUnauthorized
 		slog.Error("unable to get user_id cookie",
@@ -31,10 +30,10 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 	// The less uglier way is to construct ctx value as struct, but
 	// it's no biggie for now.
 	ctx := context.WithValue(r.Context(),
-		commonhash.FilterCtxKey,
+		commonctx.FilterCtxKey,
 		r.URL.Query().Get("filter"))
 	ctx = context.WithValue(ctx,
-		commonhash.SaltCtxKey,
+		commonctx.SaltCtxKey,
 		uuid.New().String())
 
 	prompt := r.URL.Query().Get("prompt")
@@ -117,7 +116,7 @@ func (h *handlerImpl) AddTool(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	userID, ok := r.Context().Value(middleware.UserIDCtxKey).(*http.Cookie)
+	userID, ok := r.Context().Value(commonctx.UserIDCtxKey).(*http.Cookie)
 	if !ok {
 		statusCode = http.StatusUnauthorized
 		slog.Error("unable to get user_id cookie",

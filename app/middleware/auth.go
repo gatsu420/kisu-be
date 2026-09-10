@@ -7,14 +7,9 @@ import (
 
 	"github.com/gatsu420/kisu-be/app/adapter/googleauthadapter"
 	"github.com/gatsu420/kisu-be/app/usecase/metadata"
+	"github.com/gatsu420/kisu-be/common/commonctx"
 	"github.com/gatsu420/kisu-be/common/commonerr"
-)
-
-type ctxKey int
-
-const (
-	UserIDCtxKey ctxKey = iota
-	TokenCtxKey
+	"github.com/gatsu420/kisu-be/common/commonhttp"
 )
 
 func RefreshToken(metadataUsecase metadata.Usecase, googleAuth googleauthadapter.Adapter) func(http.Handler) http.Handler {
@@ -31,7 +26,7 @@ func RefreshToken(metadataUsecase metadata.Usecase, googleAuth googleauthadapter
 				http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 				return
 			}
-			ctx := context.WithValue(r.Context(), UserIDCtxKey, userID)
+			ctx := context.WithValue(r.Context(), commonctx.UserIDCtxKey, userID)
 
 			token, err := metadataUsecase.GetUserToken(ctx, metadata.GetUserTokenArgs{
 				UserID: userID.Value,
@@ -57,7 +52,7 @@ func RefreshToken(metadataUsecase metadata.Usecase, googleAuth googleauthadapter
 				http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 				return
 			}
-			ctx = context.WithValue(ctx, TokenCtxKey, freshToken)
+			ctx = context.WithValue(ctx, commonctx.TokenCtxKey, freshToken)
 
 			err = metadataUsecase.AddUserToken(ctx, metadata.AddUserTokenArgs{
 				UserID: userID.Value,
@@ -71,6 +66,16 @@ func RefreshToken(metadataUsecase metadata.Usecase, googleAuth googleauthadapter
 				http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 				return
 			}
+
+			http.SetCookie(w, &http.Cookie{
+				Name:     commonhttp.UserIDCookieName,
+				Value:    userID.Value,
+				Path:     commonhttp.CookiePath,
+				MaxAge:   commonhttp.CookieMaxAge,
+				HttpOnly: commonhttp.CookieHttpOnly,
+				Secure:   commonhttp.CookieSecure,
+				SameSite: commonhttp.CookieSameSite,
+			})
 
 			h.ServeHTTP(w, r.WithContext(ctx))
 		})

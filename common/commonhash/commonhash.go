@@ -5,13 +5,6 @@ import (
 	"encoding/base64"
 )
 
-type ctxKey int
-
-const (
-	FilterCtxKey ctxKey = iota
-	SaltCtxKey
-)
-
 func HashStringSlice(slc []string, salt string) []string {
 	var result []string
 	checkUnique := map[string]struct{}{}

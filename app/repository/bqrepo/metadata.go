@@ -8,7 +8,7 @@ import (
 
 	"cloud.google.com/go/bigquery"
 	"github.com/gatsu420/kisu-be/app/adapter/googleauthadapter"
-	"github.com/gatsu420/kisu-be/common/commonhash"
+	"github.com/gatsu420/kisu-be/common/commonctx"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
@@ -44,12 +44,12 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 		return CallToolResult{}, fmt.Errorf("unable to unmarshal tool args: %w", err)
 	}
 
-	filter, ok := ctx.Value(commonhash.FilterCtxKey).(string)
+	filter, ok := ctx.Value(commonctx.FilterCtxKey).(string)
 	if !ok {
 		return CallToolResult{}, fmt.Errorf("unable to get filter from context")
 	}
 
-	salt, ok := ctx.Value(commonhash.SaltCtxKey).(string)
+	salt, ok := ctx.Value(commonctx.SaltCtxKey).(string)
 	if !ok {
 		return CallToolResult{}, fmt.Errorf("unable to get salt from context")
 	}
