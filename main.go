@@ -115,9 +115,11 @@ func createServer(ctx context.Context, config commonconfig.Config) (*http.Server
 	mux.HandleFunc("GET /auth/v1/get-permission", authHandler.GetPermission)
 	mux.HandleFunc("GET /auth/v1/callback", authHandler.Callback)
 
-	refreshToken := middleware.RefreshToken(pgRepo, googleAuth)
-	mux.Handle("POST /answer/v1/tool", refreshToken(http.HandlerFunc(answerHandler.AddTool)))
-	mux.Handle("GET /answer/v1/answer", refreshToken(http.HandlerFunc(answerHandler.GetAnswer)))
+	withAuthRoute := middleware.Chain(
+		middleware.RefreshToken(metadataUsecase, googleAuth),
+	)
+	mux.Handle("POST /answer/v1/tool", withAuthRoute(http.HandlerFunc(answerHandler.AddTool)))
+	mux.Handle("GET /answer/v1/answer", withAuthRoute(http.HandlerFunc(answerHandler.GetAnswer)))
 
 	return &http.Server{
 		Addr:    ":8080",

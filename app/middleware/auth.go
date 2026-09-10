@@ -6,20 +6,23 @@ import (
 	"net/http"
 
 	"github.com/gatsu420/kisu-be/app/adapter/googleauthadapter"
-	"github.com/gatsu420/kisu-be/app/repository/pgrepo"
+	"github.com/gatsu420/kisu-be/app/usecase/metadata"
 	"github.com/gatsu420/kisu-be/common/commonerr"
 )
 
 type ctxKey int
 
-const TokenCtxKey ctxKey = iota
+const (
+	UserIDCtxKey ctxKey = iota
+	TokenCtxKey
+)
 
-func RefreshToken(pgRepo pgrepo.Repository, googleAuth googleauthadapter.Adapter) func(http.Handler) http.Handler {
+func RefreshToken(metadataUsecase metadata.Usecase, googleAuth googleauthadapter.Adapter) func(http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			var statusCode int
 
-			cookie, err := r.Cookie("user_id")
+			userID, err := r.Cookie("user_id")
 			if err != nil {
 				statusCode = http.StatusUnauthorized
 				slog.Error("unable to find user_id cookie",
@@ -28,9 +31,10 @@ func RefreshToken(pgRepo pgrepo.Repository, googleAuth googleauthadapter.Adapter
 				http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 				return
 			}
+			ctx := context.WithValue(r.Context(), UserIDCtxKey, userID)
 
-			tokenResult, err := pgRepo.GetUserToken(r.Context(), pgrepo.GetUserTokenArgs{
-				UserID: cookie.Value,
+			token, err := metadataUsecase.GetUserToken(ctx, metadata.GetUserTokenArgs{
+				UserID: userID.Value,
 			})
 			if err != nil {
 				statusCode = http.StatusInternalServerError
@@ -41,8 +45,8 @@ func RefreshToken(pgRepo pgrepo.Repository, googleAuth googleauthadapter.Adapter
 				return
 			}
 
-			tokenSource := googleAuth.TokenSource(r.Context(), googleauthadapter.TokenSourceArgs{
-				Token: tokenResult.Token,
+			tokenSource := googleAuth.TokenSource(ctx, googleauthadapter.TokenSourceArgs{
+				Token: token.Token,
 			})
 			freshToken, err := tokenSource.Source.Token()
 			if err != nil {
@@ -53,9 +57,10 @@ func RefreshToken(pgRepo pgrepo.Repository, googleAuth googleauthadapter.Adapter
 				http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 				return
 			}
+			ctx = context.WithValue(ctx, TokenCtxKey, freshToken)
 
-			err = pgRepo.AddUserToken(r.Context(), pgrepo.AddUserTokenArgs{
-				UserID: cookie.Value,
+			err = metadataUsecase.AddUserToken(ctx, metadata.AddUserTokenArgs{
+				UserID: userID.Value,
 				Token:  freshToken,
 			})
 			if err != nil {
@@ -67,7 +72,6 @@ func RefreshToken(pgRepo pgrepo.Repository, googleAuth googleauthadapter.Adapter
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), TokenCtxKey, freshToken)
 			h.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

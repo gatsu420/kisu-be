@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/gatsu420/kisu-be/app/middleware"
 	"github.com/gatsu420/kisu-be/app/usecase/answer"
 	"github.com/gatsu420/kisu-be/app/usecase/metadata"
 	"github.com/gatsu420/kisu-be/common/commonerr"
@@ -18,12 +19,11 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 
 	var errMsg string
 	var statusCode int
-	userID, err := r.Cookie("user_id")
-	if err != nil {
+	userID, ok := r.Context().Value(middleware.UserIDCtxKey).(*http.Cookie)
+	if !ok {
 		statusCode = http.StatusUnauthorized
 		slog.Error("unable to get user_id cookie",
-			slog.Int(commonerr.StatusCodeKey, statusCode),
-			slog.Any(commonerr.ErrKey, err))
+			slog.Int(commonerr.StatusCodeKey, statusCode))
 		http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 		return
 	}
@@ -117,12 +117,11 @@ func (h *handlerImpl) AddTool(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	userID, err := r.Cookie("user_id")
-	if err != nil {
+	userID, ok := r.Context().Value(middleware.UserIDCtxKey).(*http.Cookie)
+	if !ok {
 		statusCode = http.StatusUnauthorized
 		slog.Error("unable to get user_id cookie",
-			slog.Int(commonerr.StatusCodeKey, statusCode),
-			slog.Any(commonerr.ErrKey, err))
+			slog.Int(commonerr.StatusCodeKey, statusCode))
 		http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 		return
 	}
