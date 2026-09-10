@@ -138,12 +138,12 @@ func (a *adapterImpl) getFuncDeclaration(ctx context.Context, args getFuncDeclar
 				r.TableName,
 				r.ToolDescription,
 				strings.Join(columns, "\n"),
-				r.ParamName,
+				"hashed_"+r.ParamName,
 				strings.Join(queryExamples, "\n")),
 			Parameters: &genai.Schema{
 				Type: genai.TypeObject,
 				Properties: map[string]*genai.Schema{
-					r.ParamName: {
+					"hashed_" + r.ParamName: {
 						Type:        genai.TypeString,
 						Description: "Hashed param delimited by comma",
 					},
@@ -152,7 +152,7 @@ func (a *adapterImpl) getFuncDeclaration(ctx context.Context, args getFuncDeclar
 						Description: "Query to get wanted information",
 					},
 				},
-				Required: []string{r.ParamName, "query"},
+				Required: []string{"hashed_" + r.ParamName, "query"},
 			},
 			Response: &genai.Schema{
 				Type:        genai.TypeArray,
