@@ -1,5 +1,7 @@
 package commonctx
 
+import "time"
+
 type ctxKey int
 
 const (
@@ -8,3 +10,5 @@ const (
 	SaltCtxKey
 	TokenCtxKey
 )
+
+const DefaultCtxTimeout = 5 * time.Second

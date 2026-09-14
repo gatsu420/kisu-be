@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/gatsu420/kisu-be/common/commonctx"
 	"golang.org/x/oauth2"
 )
 
@@ -34,6 +35,9 @@ type ExchangeResult struct {
 }
 
 func (a *adapterImpl) Exchange(ctx context.Context, args ExchangeArgs) (ExchangeResult, error) {
+	ctx, cancel := context.WithTimeout(ctx, commonctx.DefaultCtxTimeout)
+	defer cancel()
+
 	token, err := a.oauthConfig.Exchange(ctx, args.Code)
 
 	return ExchangeResult{

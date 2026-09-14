@@ -9,6 +9,7 @@ import (
 
 	"github.com/gatsu420/kisu-be/app/adapter/googleauthadapter"
 	"github.com/gatsu420/kisu-be/app/usecase/metadata"
+	"github.com/gatsu420/kisu-be/common/commonctx"
 	"github.com/gatsu420/kisu-be/common/commonerr"
 	"github.com/gatsu420/kisu-be/common/commonhttp"
 	"github.com/google/uuid"
@@ -55,7 +56,7 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	email, err := h.getEmail(context.Background(), token.Token)
+	email, err := h.getEmail(r.Context(), token.Token)
 	if err != nil {
 		errMsg = "unable to get email from google auth"
 		slog.Error(errMsg, slog.Int(commonerr.StatusCodeLogKey, http.StatusInternalServerError),
@@ -101,7 +102,19 @@ func (h *handlerImpl) getEmail(ctx context.Context, token *oauth2.Token) (string
 	googleAuthClient := h.googleAuth.Client(ctx, googleauthadapter.ClientArgs{
 		Token: token,
 	})
-	resp, err := googleAuthClient.Client.Get("https://openidconnect.googleapis.com/v1/userinfo")
+
+	ctx, cancel := context.WithTimeout(ctx, commonctx.DefaultCtxTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx,
+		"GET",
+		"https://openidconnect.googleapis.com/v1/userinfo",
+		nil)
+	if err != nil {
+		return "", fmt.Errorf("unable to construct request for user info: %w", err)
+	}
+
+	resp, err := googleAuthClient.Client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("unable to get user info from google auth: %w", err)
 	}
