@@ -97,7 +97,6 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 		return GetContentResult{}, fmt.Errorf("unable to marshal tool: %w", err)
 	}
 	stringifiedFuncCalls := string(marshaledFuncCall)
-	print(stringifiedFuncCalls)
 
 	funcCallArgs, err := json.Marshal(funcCall.Args)
 	if err != nil {
