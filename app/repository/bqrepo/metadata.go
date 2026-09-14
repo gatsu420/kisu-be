@@ -82,7 +82,6 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 type createHashedFilterViewArgs struct {
 	bqClient       *bigquery.Client
 	tableNameParts []string
-	currentEpoch   int64
 }
 
 func createHashedFilterView(ctx context.Context, args createHashedFilterViewArgs) error {
@@ -101,11 +100,10 @@ func createHashedFilterView(ctx context.Context, args createHashedFilterViewArgs
 		Create(ctx, &bigquery.TableMetadata{
 			ViewQuery: fmt.Sprintf(`
 			select
-				* except(%v),
+				*,
 				to_base64(sha256(concat(%v, "%v"))) hashed_%v
 			from %v
 			`, filter,
-				filter,
 				salt,
 				filter,
 				args.tableNameParts[1]+"."+args.tableNameParts[2]),
