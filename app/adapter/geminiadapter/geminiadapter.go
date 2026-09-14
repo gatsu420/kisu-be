@@ -3,10 +3,12 @@ package geminiadapter
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/gatsu420/kisu-be/app/usecase/metadata"
+	"github.com/gatsu420/kisu-be/common/commonctx"
 	"golang.org/x/oauth2"
 	"google.golang.org/genai"
 )
@@ -45,37 +47,65 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 		Temperature: &geminiTemp,
 	}
 
-	contents := genai.Text(fmt.Sprintf("Param: %v. Prompt: %v. %v",
-		args.Param,
-		args.Prompt,
-		"Strive for single tool call, then multiple tool calls. If no relevant tool is found, dont call any tool."))
+	paramName, ok := ctx.Value(commonctx.FilterCtxKey).(string)
+	if !ok {
+		return GetContentResult{}, errors.New("there is no param name inside context")
+	}
 
+	contents := genai.Text(fmt.Sprintf(`
+		Put %v in hashed_%v func call args.
+		Translate %v into SQL.
+		Strive for single tool call.
+	`, args.Param, paramName, args.Prompt))
 	resp, err := a.genaiClient.Models.GenerateContent(ctx, "gemini-3.1-flash-lite", contents, geminiConfig)
 	if err != nil {
 		return GetContentResult{}, fmt.Errorf("unable to use gemini client: %w", err)
 	}
 
-	funcCalls := resp.FunctionCalls()
-	marshaledFuncCalls, err := json.MarshalIndent(funcCalls, "", " ")
+	if len(resp.FunctionCalls()) == 0 {
+		return GetContentResult{}, errors.New("prompt is not associated with any tool")
+	}
+
+	funcCall := resp.FunctionCalls()[0]
+	funcCallParam, ok := funcCall.Args["hashed_"+paramName]
+	if !ok {
+		return GetContentResult{}, errors.New("there is no hashed param key inside func call args")
+	}
+
+	stringifiedFuncCallParam, ok := funcCallParam.(string)
+	if !ok {
+		return GetContentResult{}, errors.New("unable to cast func call param to string")
+	}
+
+	funcCallQuery, ok := funcCall.Args["query"]
+	if !ok {
+		return GetContentResult{}, errors.New("there is no query key inside func call args")
+	}
+
+	stringifiedFuncCallQuery, ok := funcCallQuery.(string)
+	if !ok {
+		return GetContentResult{}, errors.New("unable to cast func call query to string")
+	}
+
+	funcCall.Args["query"] = stringifiedFuncCallQuery +
+		fmt.Sprintf(" where %v in (%v)",
+			"hashed_"+paramName,
+			stringifiedFuncCallParam)
+
+	marshaledFuncCall, err := json.MarshalIndent(funcCall, "", " ")
 	if err != nil {
 		return GetContentResult{}, fmt.Errorf("unable to marshal tool: %w", err)
 	}
-	stringifiedFuncCalls := string(marshaledFuncCalls)
+	stringifiedFuncCalls := string(marshaledFuncCall)
+	print(stringifiedFuncCalls)
 
-	if len(funcCalls) == 0 {
-		return GetContentResult{
-			Content:              json.RawMessage("\"prompt is not associated with any tool\""),
-			StringifiedFuncCalls: stringifiedFuncCalls,
-		}, nil
-	}
-
-	funcCallArgs, err := json.Marshal(funcCalls[0].Args)
+	funcCallArgs, err := json.Marshal(funcCall.Args)
 	if err != nil {
 		return GetContentResult{}, fmt.Errorf("unable to marshal tool args: %w", err)
 	}
 
 	toolResult, err := a.metadataUsecase.CallTool(ctx, metadata.CallToolArgs{
-		TableName:   funcCalls[0].Name,
+		TableName:   funcCall.Name,
 		RawToolArgs: funcCallArgs,
 		Token:       args.Token,
 	})
@@ -130,26 +160,23 @@ func (a *adapterImpl) getFuncDeclaration(ctx context.Context, args getFuncDeclar
 				The view has these columns:
 				%v
 
-				Column %v doesn't need to be selected.
-
 				Sample query using the view:
 				%v
 				`,
 				r.TableName,
 				r.ToolDescription,
 				strings.Join(columns, "\n"),
-				"hashed_"+r.ParamName,
 				strings.Join(queryExamples, "\n")),
 			Parameters: &genai.Schema{
 				Type: genai.TypeObject,
 				Properties: map[string]*genai.Schema{
 					"hashed_" + r.ParamName: {
 						Type:        genai.TypeString,
-						Description: "Hashed param delimited by comma",
+						Description: "Hashed param delimited by comma. Each element is surrounded by quote.",
 					},
 					"query": {
 						Type:        genai.TypeString,
-						Description: "Query to get wanted information",
+						Description: "Query to get wanted information without WHERE",
 					},
 				},
 				Required: []string{"hashed_" + r.ParamName, "query"},
