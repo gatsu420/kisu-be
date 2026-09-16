@@ -40,22 +40,10 @@ CREATE TABLE public.tool (
     columns jsonb NOT NULL,
     query_examples jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
-);
-
-
---
--- Name: tool_param; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.tool_param (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tool_id uuid NOT NULL,
-    name text NOT NULL,
-    type text NOT NULL,
-    description text NOT NULL,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    param_name text DEFAULT ''::text NOT NULL,
+    param_type text DEFAULT ''::text NOT NULL,
+    param_description text DEFAULT ''::text NOT NULL
 );
 
 
@@ -92,14 +80,6 @@ CREATE TABLE public.user_token (
 
 ALTER TABLE ONLY public.schema_migrations
     ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
-
-
---
--- Name: tool_param tool_param_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tool_param
-    ADD CONSTRAINT tool_param_pkey PRIMARY KEY (id);
 
 
 --
@@ -142,14 +122,6 @@ CREATE UNIQUE INDEX user_id_index ON public.user_token USING btree (user_id);
 
 
 --
--- Name: tool_param tool_param_tool_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.tool_param
-    ADD CONSTRAINT tool_param_tool_id_fkey FOREIGN KEY (tool_id) REFERENCES public.tool(id);
-
-
---
 -- Name: tool tool_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -173,4 +145,6 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260807163840'),
     ('20260807165111'),
     ('20260812102043'),
-    ('20260905044803');
+    ('20260905044803'),
+    ('20260916103917'),
+    ('20260916110012');
