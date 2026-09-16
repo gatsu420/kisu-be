@@ -119,6 +119,7 @@ func createServer(ctx context.Context, config commonconfig.Config) (*http.Server
 		middleware.RefreshToken(metadataUsecase, googleAuth),
 	)
 	mux.Handle("POST /answer/v1/tool", withAuthRoute(http.HandlerFunc(answerHandler.AddTool)))
+	mux.Handle("GET /answer/v1/tool", withAuthRoute(http.HandlerFunc(answerHandler.GetTool)))
 	mux.Handle("GET /answer/v1/answer", withAuthRoute(http.HandlerFunc(answerHandler.GetAnswer)))
 
 	return &http.Server{

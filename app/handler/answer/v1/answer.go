@@ -13,11 +13,17 @@ import (
 	"github.com/google/uuid"
 )
 
+type GetAnswerResult struct {
+	Answer               json.RawMessage `json:"answer"`
+	StringifiedFuncCalls string          `json:"stringified_func_calls"`
+}
+
 func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	var errMsg string
 	var statusCode int
+
 	userID, ok := r.Context().Value(commonctx.UserIDCtxKey).(*http.Cookie)
 	if !ok {
 		statusCode = http.StatusUnauthorized
@@ -45,18 +51,25 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		errMsg = "unable to get answer"
-		slog.Error(errMsg, slog.Int(commonerr.StatusCodeLogKey, http.StatusInternalServerError),
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
 			slog.Any(commonerr.ErrLogKey, err))
-		http.Error(w, errMsg, http.StatusInternalServerError)
+		http.Error(w, errMsg, statusCode)
 		return
 	}
 
-	err = json.NewEncoder(w).Encode(promptAnswer)
+	err = json.NewEncoder(w).Encode(GetAnswerResult{
+		Answer:               promptAnswer.Answer,
+		StringifiedFuncCalls: promptAnswer.StringifiedFuncCalls,
+	})
 	if err != nil {
 		errMsg = "unable to write response"
-		slog.Error(errMsg, slog.Int(commonerr.StatusCodeLogKey, http.StatusInternalServerError),
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
 			slog.Any(commonerr.ErrLogKey, err))
-		http.Error(w, errMsg, http.StatusBadRequest)
+		http.Error(w, errMsg, statusCode)
 	}
 }
 
@@ -147,4 +160,98 @@ func (h *handlerImpl) AddTool(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("tool is added"))
+}
+
+type GetToolResult struct {
+	Rows []GetToolRow `json:"rows"`
+}
+
+type GetToolRow struct {
+	ToolDescription  string                `json:"tool_description"`
+	TableName        string                `json:"table_name"`
+	Columns          []GetToolColumn       `json:"columns"`
+	QueryExamples    []GetToolQueryExample `json:"query_examples"`
+	ParamName        string                `json:"param_name"`
+	ParamType        string                `json:"param_type"`
+	ParamDescription string                `json:"param_description"`
+}
+
+type GetToolColumn struct {
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
+}
+
+type GetToolQueryExample struct {
+	Description string `json:"description"`
+	Query       string `json:"query"`
+}
+
+func (h *handlerImpl) GetTool(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	var errMsg string
+	var statusCode int
+
+	userID, ok := r.Context().Value(commonctx.UserIDCtxKey).(*http.Cookie)
+	if !ok {
+		statusCode = http.StatusUnauthorized
+		slog.Error("unable to get user_id cookie",
+			slog.Int(commonerr.StatusCodeLogKey, statusCode))
+		http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
+		return
+	}
+
+	tools, err := h.metadataUsecase.GetTool(r.Context(), metadata.GetToolArgs{
+		UserID: userID.Value,
+	})
+	if err != nil {
+		errMsg = "unable to get tool"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.Any(commonerr.ErrLogKey, err))
+		http.Error(w, errMsg, statusCode)
+		return
+	}
+
+	resultRows := []GetToolRow{}
+	for _, r := range tools.Rows {
+		columns := []GetToolColumn{}
+		for _, c := range r.Columns {
+			columns = append(columns, GetToolColumn{
+				Name:        c.Name,
+				Type:        c.Type,
+				Description: c.Description,
+			})
+		}
+
+		queryExamples := []GetToolQueryExample{}
+		for _, qe := range r.QueryExamples {
+			queryExamples = append(queryExamples, GetToolQueryExample{
+				Description: qe.Description,
+				Query:       qe.Query,
+			})
+		}
+
+		resultRows = append(resultRows, GetToolRow{
+			ToolDescription:  r.ToolDescription,
+			TableName:        r.TableName,
+			Columns:          columns,
+			QueryExamples:    queryExamples,
+			ParamName:        r.ParamName,
+			ParamType:        r.ParamType,
+			ParamDescription: r.ParamDescription,
+		})
+	}
+
+	err = json.NewEncoder(w).Encode(resultRows)
+	if err != nil {
+		errMsg = "unable to write response"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.Any(commonerr.ErrLogKey, err))
+		http.Error(w, errMsg, statusCode)
+	}
 }

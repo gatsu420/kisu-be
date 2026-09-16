@@ -20,8 +20,8 @@ type GetAnswerArgs struct {
 }
 
 type GetAnswerResult struct {
-	Answer               json.RawMessage `json:"answer"`
-	StringifiedFuncCalls string          `json:"stringified_func_calls"`
+	Answer               json.RawMessage
+	StringifiedFuncCalls string
 }
 
 func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAnswerResult, error) {
