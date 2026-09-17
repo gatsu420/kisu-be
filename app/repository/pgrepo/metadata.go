@@ -113,36 +113,14 @@ type AddToolQueryExample struct {
 }
 
 func (r *repositoryImpl) AddTool(ctx context.Context, args AddToolArgs) error {
-	trx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("unable to create transaction: %w", err)
-	}
-	defer trx.Rollback(ctx)
-
-	var toolID string
-	err = trx.QueryRow(ctx, `
-		insert into tool (
+	_, err := r.pool.Exec(ctx, `
+		insert into tool(
 			user_id, tool_description, table_name, columns, query_examples
 		) values ($1, $2, $3, $4, $5)
 		returning id
-	`, args.UserID, args.ToolDescription, args.TableName, args.Columns, args.QueryExamples).
-		Scan(&toolID)
+	`, args.UserID, args.ToolDescription, args.TableName, args.Columns, args.QueryExamples)
 	if err != nil {
 		return fmt.Errorf("unable to add tool: %w", err)
-	}
-
-	_, err = trx.Exec(ctx, `
-		insert into tool_param (
-			tool_id, name, type, description
-		) values ($1, $2, $3, $4)
-	`, toolID, args.ParamName, args.ParamType, args.ParamDescription)
-	if err != nil {
-		return fmt.Errorf("unable to add tool_param when adding tool: %w", err)
-	}
-
-	err = trx.Commit(ctx)
-	if err != nil {
-		return fmt.Errorf("unable to commit transaction when adding tool: %w", err)
 	}
 
 	return nil
@@ -180,17 +158,15 @@ type GetToolQueryExample struct {
 func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) (GetToolResult, error) {
 	rows, err := r.pool.Query(ctx, `
 		select
-			t.tool_description,
-			t.table_name,
-			t.columns,
-			t.query_examples,
-			tp.name param_name,
-			tp.type param_type,
-			tp.description param_description
-		from tool t
-		left join tool_param tp on
-			t.id = tp.tool_id
-		where t.user_id = $1
+			tool_description,
+			table_name,
+			columns,
+			query_examples,
+			param_name,
+			param_type,
+			param_description
+		from tool
+		where user_id = $1
 	`, args.UserID)
 	if err != nil {
 		return GetToolResult{}, fmt.Errorf("unable to get tool: %w", err)
