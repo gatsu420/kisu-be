@@ -1,6 +1,6 @@
 \restrict dbmate
 
--- Dumped from database version 17.11 (c4ba6b8)
+-- Dumped from database version 17.11 (8a81ecb)
 -- Dumped by pg_dump version 17.10
 
 SET statement_timeout = 0;
@@ -18,6 +18,36 @@ SET row_security = off;
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
+
+--
+-- Name: example; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.example (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tool_id uuid NOT NULL,
+    query text NOT NULL,
+    description text NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: query_tool; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.query_tool (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    columns jsonb NOT NULL,
+    param_name text NOT NULL,
+    param_type text NOT NULL,
+    param_description text NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
 
 --
 -- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
@@ -38,12 +68,12 @@ CREATE TABLE public.tool (
     tool_description text NOT NULL,
     table_name text NOT NULL,
     columns jsonb NOT NULL,
-    query_examples jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
     param_name text DEFAULT ''::text NOT NULL,
     param_type text DEFAULT ''::text NOT NULL,
-    param_description text DEFAULT ''::text NOT NULL
+    param_description text DEFAULT ''::text NOT NULL,
+    type text DEFAULT ''::text NOT NULL
 );
 
 
@@ -72,6 +102,22 @@ CREATE TABLE public.user_token (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
+
+
+--
+-- Name: example example_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.example
+    ADD CONSTRAINT example_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: query_tool query_tool_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.query_tool
+    ADD CONSTRAINT query_tool_pkey PRIMARY KEY (id);
 
 
 --
@@ -122,6 +168,22 @@ CREATE UNIQUE INDEX user_id_index ON public.user_token USING btree (user_id);
 
 
 --
+-- Name: example example_tool_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.example
+    ADD CONSTRAINT example_tool_id_fkey FOREIGN KEY (tool_id) REFERENCES public.tool(id);
+
+
+--
+-- Name: query_tool query_tool_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.query_tool
+    ADD CONSTRAINT query_tool_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_information(id);
+
+
+--
 -- Name: tool tool_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -147,4 +209,9 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260812102043'),
     ('20260905044803'),
     ('20260916103917'),
-    ('20260916110012');
+    ('20260916110012'),
+    ('20260917071611'),
+    ('20260918034302'),
+    ('20260918080629'),
+    ('20260919152731'),
+    ('20260920051354');

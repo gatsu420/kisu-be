@@ -142,13 +142,13 @@ func (a *adapterImpl) getFuncDeclaration(ctx context.Context, args getFuncDeclar
 				c.Name, c.Type, c.Description))
 		}
 
-		queryExamples := []string{}
-		for _, qe := range r.QueryExamples {
-			query := strings.ReplaceAll(qe.Query,
+		examples := []string{}
+		for _, e := range r.Examples {
+			query := strings.ReplaceAll(e.Query,
 				r.TableName,
 				fmt.Sprintf("%v_hashed_filter", r.TableName))
-			queryExamples = append(queryExamples, fmt.Sprintf("- %v\n\t%v",
-				qe.Description, query))
+			examples = append(examples, fmt.Sprintf("- %v\n\t%v",
+				e.Description, query))
 		}
 
 		funcDeclarations = append(funcDeclarations, &genai.FunctionDeclaration{
@@ -165,7 +165,7 @@ func (a *adapterImpl) getFuncDeclaration(ctx context.Context, args getFuncDeclar
 				r.TableName,
 				r.ToolDescription,
 				strings.Join(columns, "\n"),
-				strings.Join(queryExamples, "\n")),
+				strings.Join(examples, "\n")),
 			Parameters: &genai.Schema{
 				Type: genai.TypeObject,
 				Properties: map[string]*genai.Schema{

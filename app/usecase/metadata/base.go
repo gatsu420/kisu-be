@@ -14,6 +14,8 @@ type Usecase interface {
 	AddTool(ctx context.Context, args AddToolArgs) error
 	GetTool(ctx context.Context, args GetToolArgs) (GetToolResult, error)
 	CallTool(ctx context.Context, args CallToolArgs) (CallToolResult, error)
+	AddQueryTool(ctx context.Context, args AddQueryToolArgs) error
+	GetQueryTool(ctx context.Context, args GetQueryToolArgs) (GetQueryToolResult, error)
 }
 
 type usecaseImpl struct {

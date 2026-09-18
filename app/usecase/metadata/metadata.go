@@ -74,7 +74,7 @@ type AddToolArgs struct {
 	ToolDescription  string
 	TableName        string
 	Columns          []AddToolColumn
-	QueryExamples    []AddToolQueryExample
+	Examples         []AddToolExample
 	ParamName        string
 	ParamType        string
 	ParamDescription string
@@ -86,7 +86,7 @@ type AddToolColumn struct {
 	Description string
 }
 
-type AddToolQueryExample struct {
+type AddToolExample struct {
 	Description string
 	Query       string
 }
@@ -101,11 +101,11 @@ func (u *usecaseImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 		})
 	}
 
-	queryExamples := []pgrepo.AddToolQueryExample{}
-	for _, qe := range args.QueryExamples {
-		queryExamples = append(queryExamples, pgrepo.AddToolQueryExample{
-			Description: qe.Description,
-			Query:       qe.Query,
+	examples := []pgrepo.AddToolExample{}
+	for _, e := range args.Examples {
+		examples = append(examples, pgrepo.AddToolExample{
+			Description: e.Description,
+			Query:       e.Query,
 		})
 	}
 
@@ -114,7 +114,7 @@ func (u *usecaseImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 		ToolDescription:  args.ToolDescription,
 		TableName:        args.TableName,
 		Columns:          columns,
-		QueryExamples:    queryExamples,
+		Examples:         examples,
 		ParamName:        args.ParamName,
 		ParamType:        args.ParamType,
 		ParamDescription: args.ParamDescription,
@@ -138,7 +138,7 @@ type GetToolRow struct {
 	ToolDescription  string
 	TableName        string
 	Columns          []GetToolColumn
-	QueryExamples    []GetToolQueryExample
+	Examples         []GetToolExample
 	ParamName        string
 	ParamType        string
 	ParamDescription string
@@ -150,7 +150,7 @@ type GetToolColumn struct {
 	Description string
 }
 
-type GetToolQueryExample struct {
+type GetToolExample struct {
 	Description string
 	Query       string
 }
@@ -174,11 +174,11 @@ func (u *usecaseImpl) GetTool(ctx context.Context, args GetToolArgs) (GetToolRes
 			})
 		}
 
-		resultQueryExamples := []GetToolQueryExample{}
-		for _, qe := range r.QueryExamples {
-			resultQueryExamples = append(resultQueryExamples, GetToolQueryExample{
-				Description: qe.Description,
-				Query:       qe.Query,
+		resultExamples := []GetToolExample{}
+		for _, e := range r.Examples {
+			resultExamples = append(resultExamples, GetToolExample{
+				Description: e.Description,
+				Query:       e.Query,
 			})
 		}
 
@@ -186,7 +186,7 @@ func (u *usecaseImpl) GetTool(ctx context.Context, args GetToolArgs) (GetToolRes
 			ToolDescription:  r.ToolDescription,
 			TableName:        r.TableName,
 			Columns:          resultColumns,
-			QueryExamples:    resultQueryExamples,
+			Examples:         resultExamples,
 			ParamName:        r.ParamName,
 			ParamType:        r.ParamType,
 			ParamDescription: r.ParamDescription,
@@ -225,5 +225,104 @@ func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallTool
 
 	return CallToolResult{
 		Result: marshaledRows,
+	}, nil
+}
+
+type AddQueryToolArgs struct {
+	UserID           string
+	Description      string
+	Query            string
+	Columns          []AddQueryToolColumn
+	ParamName        string
+	ParamType        string
+	ParamDescription string
+}
+
+type AddQueryToolColumn struct {
+	Name        string
+	Type        string
+	Description string
+}
+
+func (u *usecaseImpl) AddQueryTool(ctx context.Context, args AddQueryToolArgs) error {
+	columns := []pgrepo.AddQueryToolColumn{}
+	for _, c := range args.Columns {
+		columns = append(columns, pgrepo.AddQueryToolColumn{
+			Name:        c.Name,
+			Type:        c.Type,
+			Description: c.Description,
+		})
+	}
+
+	err := u.pgRepo.AddQueryTool(ctx, pgrepo.AddQueryToolArgs{
+		UserID:           args.UserID,
+		Description:      args.Description,
+		Query:            args.Query,
+		Columns:          columns,
+		ParamName:        args.ParamName,
+		ParamType:        args.ParamType,
+		ParamDescription: args.ParamDescription,
+	})
+	if err != nil {
+		return fmt.Errorf("unable to add query tool: %w", err)
+	}
+
+	return nil
+}
+
+type GetQueryToolArgs struct {
+	UserID string
+}
+
+type GetQueryToolResult struct {
+	Rows []GetQueryToolRow
+}
+
+type GetQueryToolRow struct {
+	ToolDescription  string
+	Query            string
+	Columns          []GetQueryToolColumn
+	ParamName        string
+	ParamType        string
+	ParamDescription string
+}
+
+type GetQueryToolColumn struct {
+	Name        string
+	Type        string
+	Description string
+}
+
+func (u *usecaseImpl) GetQueryTool(ctx context.Context, args GetQueryToolArgs) (GetQueryToolResult, error) {
+	rows, err := u.pgRepo.GetQueryTool(ctx, pgrepo.GetQueryToolArgs{
+		UserID: args.UserID,
+	})
+	if err != nil {
+		return GetQueryToolResult{}, fmt.Errorf("unable to get query tool: %w", err)
+	}
+
+	resultRows := []GetQueryToolRow{}
+	for _, r := range rows.Rows {
+		resultColumns := []GetQueryToolColumn{}
+		for _, c := range r.Columns {
+			resultColumns = append(resultColumns, GetQueryToolColumn{
+				Name:        c.Name,
+				Type:        c.Type,
+				Description: c.Description,
+			})
+		}
+
+		resultRows = append(resultRows, GetQueryToolRow{
+			ToolDescription:  r.ToolDescription,
+			Query:            r.Query,
+			Columns:          resultColumns,
+			ParamName:        r.ParamName,
+			ParamType:        r.ParamType,
+			ParamDescription: r.ParamDescription,
+		})
+	}
+
+	return GetQueryToolResult{
+		Rows: resultRows,
 	}, nil
 }

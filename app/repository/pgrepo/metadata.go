@@ -95,7 +95,7 @@ type AddToolArgs struct {
 	ToolDescription  string
 	TableName        string
 	Columns          []AddToolColumn
-	QueryExamples    []AddToolQueryExample
+	Examples         []AddToolExample
 	ParamName        string
 	ParamType        string
 	ParamDescription string
@@ -107,20 +107,52 @@ type AddToolColumn struct {
 	Description string `json:"description"`
 }
 
-type AddToolQueryExample struct {
-	Description string `json:"description"`
-	Query       string `json:"query"`
+type AddToolExample struct {
+	Description string
+	Query       string
 }
 
 func (r *repositoryImpl) AddTool(ctx context.Context, args AddToolArgs) error {
-	_, err := r.pool.Exec(ctx, `
-		insert into tool(
-			user_id, tool_description, table_name, columns, query_examples
-		) values ($1, $2, $3, $4, $5)
-		returning id
-	`, args.UserID, args.ToolDescription, args.TableName, args.Columns, args.QueryExamples)
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("unable to add tool: %w", err)
+		return fmt.Errorf("unable to begin transaction for adding tool: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var toolID string
+	err = tx.QueryRow(ctx, `
+		insert into tool (
+			user_id, tool_description, table_name, columns,
+			param_name, param_type, param_description
+		) values ($1, $2, $3, $4, $5, $6, $7)
+		returning id
+	`, args.UserID, args.ToolDescription, args.TableName, args.Columns,
+		args.ParamName, args.ParamType, args.ParamDescription).
+		Scan(&toolID)
+	if err != nil {
+		return fmt.Errorf("unable to insert to tool while in transaction: %w", err)
+	}
+
+	exampleQuery := make([]string, len(args.Examples))
+	exampleDescription := make([]string, len(args.Examples))
+	for i, e := range args.Examples {
+		exampleQuery[i] = e.Query
+		exampleDescription[i] = e.Description
+	}
+	_, err = tx.Exec(ctx, `
+		insert into example (
+			tool_id, query, description
+		)
+		select $1, q, d
+		from unnest($2::text[], $3::text[]) as t(q, d)
+	`, toolID, exampleQuery, exampleDescription)
+	if err != nil {
+		return fmt.Errorf("unable to insert to example while in transaction: %w", err)
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to commit transaction for adding tool: %w", err)
 	}
 
 	return nil
@@ -138,7 +170,7 @@ type GetToolRow struct {
 	ToolDescription  string
 	TableName        string
 	Columns          []GetToolColumn
-	QueryExamples    []GetToolQueryExample
+	Examples         []GetToolExample
 	ParamName        string
 	ParamType        string
 	ParamDescription string
@@ -150,23 +182,42 @@ type GetToolColumn struct {
 	Description string
 }
 
-type GetToolQueryExample struct {
+type GetToolExample struct {
 	Description string
 	Query       string
 }
 
 func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) (GetToolResult, error) {
 	rows, err := r.pool.Query(ctx, `
-		select
-			tool_description,
-			table_name,
-			columns,
-			query_examples,
-			param_name,
-			param_type,
-			param_description
-		from tool
-		where user_id = $1
+		with tool_example as (
+			select
+				tool_id,
+				jsonb_agg(
+					jsonb_build_object(
+						'description', description,
+						'query', query
+					)
+				) example
+			from example
+			group by 1
+		)
+
+		, breakdown as (
+			select
+				t.tool_description,
+				t.table_name,
+				t.columns,
+				coalesce(te.example, '[]'::jsonb) example,
+				t.param_name,
+				t.param_type,
+				t.param_description
+			from tool t
+			left join tool_example te on
+				t.id = te.tool_id
+			where t.user_id = $1
+		)
+
+		select * from breakdown
 	`, args.UserID)
 	if err != nil {
 		return GetToolResult{}, fmt.Errorf("unable to get tool: %w", err)
@@ -180,7 +231,7 @@ func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) (GetTool
 			&resultRow.ToolDescription,
 			&resultRow.TableName,
 			&resultRow.Columns,
-			&resultRow.QueryExamples,
+			&resultRow.Examples,
 			&resultRow.ParamName,
 			&resultRow.ParamType,
 			&resultRow.ParamDescription,
@@ -198,6 +249,128 @@ func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) (GetTool
 	}
 
 	return GetToolResult{
+		Rows: resultRows,
+	}, nil
+}
+
+type AddQueryToolArgs struct {
+	UserID           string
+	Description      string
+	Query            string
+	Columns          []AddQueryToolColumn
+	ParamName        string
+	ParamType        string
+	ParamDescription string
+}
+
+type AddQueryToolColumn struct {
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
+}
+
+func (r *repositoryImpl) AddQueryTool(ctx context.Context, args AddQueryToolArgs) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to begin transaction for adding query tool: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var toolID string
+	err = tx.QueryRow(ctx, `
+		insert into query_tool (
+			user_id, columns,
+			param_name, param_type, param_description
+		) values ($1, $2, $3, $4, $5)
+		returning id
+	`, args.UserID, args.Columns,
+		args.ParamName, args.ParamType, args.ParamDescription).
+		Scan(&toolID)
+	if err != nil {
+		return fmt.Errorf("unable to insert to query_tool while in transaction: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `
+		insert into example (
+			tool_id, description, query
+		) values ($1, $2, $3)
+	`, toolID, args.Description, args.Query)
+	if err != nil {
+		return fmt.Errorf("unable to insert to example while in transaction: %w", err)
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to commit transaction for adding query tool: %w", err)
+	}
+
+	return nil
+}
+
+type GetQueryToolArgs struct {
+	UserID string
+}
+
+type GetQueryToolResult struct {
+	Rows []GetQueryToolRow
+}
+
+type GetQueryToolRow struct {
+	ToolDescription  string
+	Query            string
+	Columns          []GetQueryToolColumn
+	ParamName        string
+	ParamType        string
+	ParamDescription string
+}
+
+type GetQueryToolColumn struct {
+	Name        string
+	Type        string
+	Description string
+}
+
+func (r *repositoryImpl) GetQueryTool(ctx context.Context, args GetQueryToolArgs) (GetQueryToolResult, error) {
+	rows, err := r.pool.Query(ctx, `
+		select
+			tool_description,
+			query,
+			columns,
+			param_name,
+			param_type,
+			param_description
+		from query_tool
+		where user_id = $1
+	`, args.UserID)
+	if err != nil {
+		return GetQueryToolResult{}, fmt.Errorf("unable to get query tool: %w", err)
+	}
+	defer rows.Close()
+
+	resultRows := []GetQueryToolRow{}
+	for rows.Next() {
+		var resultRow GetQueryToolRow
+		err := rows.Scan(
+			&resultRow.ToolDescription,
+			&resultRow.Query,
+			&resultRow.Columns,
+			&resultRow.ParamName,
+			&resultRow.ParamType,
+			&resultRow.ParamDescription,
+		)
+		if err != nil {
+			return GetQueryToolResult{}, fmt.Errorf("unable to read row when getting query tool: %w", err)
+		}
+
+		resultRows = append(resultRows, resultRow)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		return GetQueryToolResult{}, fmt.Errorf("unable to iterate rows when getting query tool: %w", err)
+	}
+
+	return GetQueryToolResult{
 		Rows: resultRows,
 	}, nil
 }

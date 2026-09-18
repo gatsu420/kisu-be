@@ -12,6 +12,8 @@ type Repository interface {
 	GetUserToken(ctx context.Context, args GetUserTokenArgs) (GetUserTokenResult, error)
 	AddTool(ctx context.Context, args AddToolArgs) error
 	GetTool(ctx context.Context, args GetToolArgs) (GetToolResult, error)
+	AddQueryTool(ctx context.Context, args AddQueryToolArgs) error
+	GetQueryTool(ctx context.Context, args GetQueryToolArgs) (GetQueryToolResult, error)
 }
 
 type repositoryImpl struct {
