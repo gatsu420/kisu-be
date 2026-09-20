@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gatsu420/kisu-be/common/commontype"
 	"golang.org/x/oauth2"
 )
 
@@ -95,6 +96,7 @@ type AddToolArgs struct {
 	ToolDescription  string
 	TableName        string
 	Columns          []AddToolColumn
+	Type             commontype.ToolType
 	Examples         []AddToolExample
 	ParamName        string
 	ParamType        string
@@ -122,11 +124,11 @@ func (r *repositoryImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 	var toolID string
 	err = tx.QueryRow(ctx, `
 		insert into tool (
-			user_id, tool_description, table_name, columns,
+			user_id, tool_description, table_name, columns, type,
 			param_name, param_type, param_description
-		) values ($1, $2, $3, $4, $5, $6, $7)
+		) values ($1, $2, $3, $4, $5, $6, $7, $8)
 		returning id
-	`, args.UserID, args.ToolDescription, args.TableName, args.Columns,
+	`, args.UserID, args.ToolDescription, args.TableName, args.Columns, args.Type,
 		args.ParamName, args.ParamType, args.ParamDescription).
 		Scan(&toolID)
 	if err != nil {
@@ -170,6 +172,7 @@ type GetToolRow struct {
 	ToolDescription  string
 	TableName        string
 	Columns          []GetToolColumn
+	Type             commontype.ToolType
 	Examples         []GetToolExample
 	ParamName        string
 	ParamType        string
@@ -207,6 +210,7 @@ func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) (GetTool
 				t.tool_description,
 				t.table_name,
 				t.columns,
+				t.type,
 				coalesce(te.example, '[]'::jsonb) example,
 				t.param_name,
 				t.param_type,
@@ -231,6 +235,7 @@ func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) (GetTool
 			&resultRow.ToolDescription,
 			&resultRow.TableName,
 			&resultRow.Columns,
+			&resultRow.Type,
 			&resultRow.Examples,
 			&resultRow.ParamName,
 			&resultRow.ParamType,
@@ -249,128 +254,6 @@ func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) (GetTool
 	}
 
 	return GetToolResult{
-		Rows: resultRows,
-	}, nil
-}
-
-type AddQueryToolArgs struct {
-	UserID           string
-	Description      string
-	Query            string
-	Columns          []AddQueryToolColumn
-	ParamName        string
-	ParamType        string
-	ParamDescription string
-}
-
-type AddQueryToolColumn struct {
-	Name        string `json:"name"`
-	Type        string `json:"type"`
-	Description string `json:"description"`
-}
-
-func (r *repositoryImpl) AddQueryTool(ctx context.Context, args AddQueryToolArgs) error {
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("unable to begin transaction for adding query tool: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	var toolID string
-	err = tx.QueryRow(ctx, `
-		insert into query_tool (
-			user_id, columns,
-			param_name, param_type, param_description
-		) values ($1, $2, $3, $4, $5)
-		returning id
-	`, args.UserID, args.Columns,
-		args.ParamName, args.ParamType, args.ParamDescription).
-		Scan(&toolID)
-	if err != nil {
-		return fmt.Errorf("unable to insert to query_tool while in transaction: %w", err)
-	}
-
-	_, err = tx.Exec(ctx, `
-		insert into example (
-			tool_id, description, query
-		) values ($1, $2, $3)
-	`, toolID, args.Description, args.Query)
-	if err != nil {
-		return fmt.Errorf("unable to insert to example while in transaction: %w", err)
-	}
-
-	err = tx.Commit(ctx)
-	if err != nil {
-		return fmt.Errorf("unable to commit transaction for adding query tool: %w", err)
-	}
-
-	return nil
-}
-
-type GetQueryToolArgs struct {
-	UserID string
-}
-
-type GetQueryToolResult struct {
-	Rows []GetQueryToolRow
-}
-
-type GetQueryToolRow struct {
-	ToolDescription  string
-	Query            string
-	Columns          []GetQueryToolColumn
-	ParamName        string
-	ParamType        string
-	ParamDescription string
-}
-
-type GetQueryToolColumn struct {
-	Name        string
-	Type        string
-	Description string
-}
-
-func (r *repositoryImpl) GetQueryTool(ctx context.Context, args GetQueryToolArgs) (GetQueryToolResult, error) {
-	rows, err := r.pool.Query(ctx, `
-		select
-			tool_description,
-			query,
-			columns,
-			param_name,
-			param_type,
-			param_description
-		from query_tool
-		where user_id = $1
-	`, args.UserID)
-	if err != nil {
-		return GetQueryToolResult{}, fmt.Errorf("unable to get query tool: %w", err)
-	}
-	defer rows.Close()
-
-	resultRows := []GetQueryToolRow{}
-	for rows.Next() {
-		var resultRow GetQueryToolRow
-		err := rows.Scan(
-			&resultRow.ToolDescription,
-			&resultRow.Query,
-			&resultRow.Columns,
-			&resultRow.ParamName,
-			&resultRow.ParamType,
-			&resultRow.ParamDescription,
-		)
-		if err != nil {
-			return GetQueryToolResult{}, fmt.Errorf("unable to read row when getting query tool: %w", err)
-		}
-
-		resultRows = append(resultRows, resultRow)
-	}
-
-	err = rows.Err()
-	if err != nil {
-		return GetQueryToolResult{}, fmt.Errorf("unable to iterate rows when getting query tool: %w", err)
-	}
-
-	return GetQueryToolResult{
 		Rows: resultRows,
 	}, nil
 }

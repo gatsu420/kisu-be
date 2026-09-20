@@ -3,10 +3,13 @@ package metadata
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 
 	"github.com/gatsu420/kisu-be/app/repository/bqrepo"
 	"github.com/gatsu420/kisu-be/app/repository/pgrepo"
+	"github.com/gatsu420/kisu-be/common/commontype"
 	"golang.org/x/oauth2"
 )
 
@@ -74,6 +77,7 @@ type AddToolArgs struct {
 	ToolDescription  string
 	TableName        string
 	Columns          []AddToolColumn
+	Type             commontype.ToolType
 	Examples         []AddToolExample
 	ParamName        string
 	ParamType        string
@@ -92,6 +96,21 @@ type AddToolExample struct {
 }
 
 func (u *usecaseImpl) AddTool(ctx context.Context, args AddToolArgs) error {
+	if !args.Type.ValidateToolType() {
+		return errors.New("invalid type value")
+	}
+
+	switch args.Type {
+	case commontype.TableToolType:
+		if args.TableName == "" {
+			return errors.New("table type must have table name")
+		}
+	case commontype.QueryToolType:
+		if args.TableName != "" {
+			return errors.New("query type must not have table name")
+		}
+	}
+
 	columns := []pgrepo.AddToolColumn{}
 	for _, c := range args.Columns {
 		columns = append(columns, pgrepo.AddToolColumn{
@@ -114,6 +133,7 @@ func (u *usecaseImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 		ToolDescription:  args.ToolDescription,
 		TableName:        args.TableName,
 		Columns:          columns,
+		Type:             args.Type,
 		Examples:         examples,
 		ParamName:        args.ParamName,
 		ParamType:        args.ParamType,
@@ -138,6 +158,7 @@ type GetToolRow struct {
 	ToolDescription  string
 	TableName        string
 	Columns          []GetToolColumn
+	Type             commontype.ToolType
 	Examples         []GetToolExample
 	ParamName        string
 	ParamType        string
@@ -186,6 +207,7 @@ func (u *usecaseImpl) GetTool(ctx context.Context, args GetToolArgs) (GetToolRes
 			ToolDescription:  r.ToolDescription,
 			TableName:        r.TableName,
 			Columns:          resultColumns,
+			Type:             r.Type,
 			Examples:         resultExamples,
 			ParamName:        r.ParamName,
 			ParamType:        r.ParamType,
@@ -225,104 +247,5 @@ func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallTool
 
 	return CallToolResult{
 		Result: marshaledRows,
-	}, nil
-}
-
-type AddQueryToolArgs struct {
-	UserID           string
-	Description      string
-	Query            string
-	Columns          []AddQueryToolColumn
-	ParamName        string
-	ParamType        string
-	ParamDescription string
-}
-
-type AddQueryToolColumn struct {
-	Name        string
-	Type        string
-	Description string
-}
-
-func (u *usecaseImpl) AddQueryTool(ctx context.Context, args AddQueryToolArgs) error {
-	columns := []pgrepo.AddQueryToolColumn{}
-	for _, c := range args.Columns {
-		columns = append(columns, pgrepo.AddQueryToolColumn{
-			Name:        c.Name,
-			Type:        c.Type,
-			Description: c.Description,
-		})
-	}
-
-	err := u.pgRepo.AddQueryTool(ctx, pgrepo.AddQueryToolArgs{
-		UserID:           args.UserID,
-		Description:      args.Description,
-		Query:            args.Query,
-		Columns:          columns,
-		ParamName:        args.ParamName,
-		ParamType:        args.ParamType,
-		ParamDescription: args.ParamDescription,
-	})
-	if err != nil {
-		return fmt.Errorf("unable to add query tool: %w", err)
-	}
-
-	return nil
-}
-
-type GetQueryToolArgs struct {
-	UserID string
-}
-
-type GetQueryToolResult struct {
-	Rows []GetQueryToolRow
-}
-
-type GetQueryToolRow struct {
-	ToolDescription  string
-	Query            string
-	Columns          []GetQueryToolColumn
-	ParamName        string
-	ParamType        string
-	ParamDescription string
-}
-
-type GetQueryToolColumn struct {
-	Name        string
-	Type        string
-	Description string
-}
-
-func (u *usecaseImpl) GetQueryTool(ctx context.Context, args GetQueryToolArgs) (GetQueryToolResult, error) {
-	rows, err := u.pgRepo.GetQueryTool(ctx, pgrepo.GetQueryToolArgs{
-		UserID: args.UserID,
-	})
-	if err != nil {
-		return GetQueryToolResult{}, fmt.Errorf("unable to get query tool: %w", err)
-	}
-
-	resultRows := []GetQueryToolRow{}
-	for _, r := range rows.Rows {
-		resultColumns := []GetQueryToolColumn{}
-		for _, c := range r.Columns {
-			resultColumns = append(resultColumns, GetQueryToolColumn{
-				Name:        c.Name,
-				Type:        c.Type,
-				Description: c.Description,
-			})
-		}
-
-		resultRows = append(resultRows, GetQueryToolRow{
-			ToolDescription:  r.ToolDescription,
-			Query:            r.Query,
-			Columns:          resultColumns,
-			ParamName:        r.ParamName,
-			ParamType:        r.ParamType,
-			ParamDescription: r.ParamDescription,
-		})
-	}
-
-	return GetQueryToolResult{
-		Rows: resultRows,
 	}, nil
 }

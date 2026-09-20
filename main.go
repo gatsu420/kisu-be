@@ -120,8 +120,6 @@ func createServer(ctx context.Context, config commonconfig.Config) (*http.Server
 	)
 	mux.Handle("POST /answer/v1/tool", withAuthRoute(http.HandlerFunc(answerHandler.AddTool)))
 	mux.Handle("GET /answer/v1/tool", withAuthRoute(http.HandlerFunc(answerHandler.GetTool)))
-	mux.Handle("POST /answer/v1/query-tool", withAuthRoute(http.HandlerFunc(answerHandler.AddQueryTool)))
-	mux.Handle("GET /answer/v1/query-tool", withAuthRoute(http.HandlerFunc(answerHandler.GetQueryTool)))
 	mux.Handle("GET /answer/v1/answer", withAuthRoute(http.HandlerFunc(answerHandler.GetAnswer)))
 
 	return &http.Server{

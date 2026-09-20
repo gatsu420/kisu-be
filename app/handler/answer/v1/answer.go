@@ -10,6 +10,7 @@ import (
 	"github.com/gatsu420/kisu-be/app/usecase/metadata"
 	"github.com/gatsu420/kisu-be/common/commonctx"
 	"github.com/gatsu420/kisu-be/common/commonerr"
+	"github.com/gatsu420/kisu-be/common/commontype"
 	"github.com/google/uuid"
 )
 
@@ -74,13 +75,14 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 }
 
 type AddToolArgs struct {
-	ToolDescription  string           `json:"tool_description"`
-	TableName        string           `json:"table_name"`
-	Columns          []AddToolColumn  `json:"columns"`
-	Examples         []AddToolExample `json:"examples"`
-	ParamName        string           `json:"param_name"`
-	ParamType        string           `json:"param_type"`
-	ParamDescription string           `json:"param_description"`
+	ToolDescription  string              `json:"tool_description"`
+	TableName        string              `json:"table_name"`
+	Columns          []AddToolColumn     `json:"columns"`
+	Type             commontype.ToolType `json:"type"`
+	Examples         []AddToolExample    `json:"examples"`
+	ParamName        string              `json:"param_name"`
+	ParamType        string              `json:"param_type"`
+	ParamDescription string              `json:"param_description"`
 }
 
 type AddToolColumn struct {
@@ -143,6 +145,7 @@ func (h *handlerImpl) AddTool(w http.ResponseWriter, r *http.Request) {
 		ToolDescription:  args.ToolDescription,
 		TableName:        args.TableName,
 		Columns:          columns,
+		Type:             args.Type,
 		Examples:         examples,
 		ParamName:        args.ParamName,
 		ParamType:        args.ParamType,
@@ -167,13 +170,14 @@ type GetToolResult struct {
 }
 
 type GetToolRow struct {
-	ToolDescription  string           `json:"tool_description"`
-	TableName        string           `json:"table_name"`
-	Columns          []GetToolColumn  `json:"columns"`
-	Examples         []GetToolExample `json:"examples"`
-	ParamName        string           `json:"param_name"`
-	ParamType        string           `json:"param_type"`
-	ParamDescription string           `json:"param_description"`
+	ToolDescription  string              `json:"tool_description"`
+	TableName        string              `json:"table_name"`
+	Columns          []GetToolColumn     `json:"columns"`
+	Type             commontype.ToolType `json:"type"`
+	Examples         []GetToolExample    `json:"examples"`
+	ParamName        string              `json:"param_name"`
+	ParamType        string              `json:"param_type"`
+	ParamDescription string              `json:"param_description"`
 }
 
 type GetToolColumn struct {
@@ -238,161 +242,8 @@ func (h *handlerImpl) GetTool(w http.ResponseWriter, r *http.Request) {
 			ToolDescription:  r.ToolDescription,
 			TableName:        r.TableName,
 			Columns:          columns,
+			Type:             r.Type,
 			Examples:         examples,
-			ParamName:        r.ParamName,
-			ParamType:        r.ParamType,
-			ParamDescription: r.ParamDescription,
-		})
-	}
-
-	err = json.NewEncoder(w).Encode(resultRows)
-	if err != nil {
-		errMsg = "unable to write response"
-		statusCode = http.StatusInternalServerError
-		slog.Error(errMsg,
-			slog.Int(commonerr.StatusCodeLogKey, statusCode),
-			slog.Any(commonerr.ErrLogKey, err))
-		http.Error(w, errMsg, statusCode)
-	}
-}
-
-type AddQueryToolArgs struct {
-	Description      string               `json:"description"`
-	Query            string               `json:"query"`
-	Columns          []AddQueryToolColumn `json:"columns"`
-	ParamName        string               `json:"param_name"`
-	ParamType        string               `json:"param_type"`
-	ParamDescription string               `json:"param_description"`
-}
-
-type AddQueryToolColumn struct {
-	Name        string `json:"name"`
-	Type        string `json:"type"`
-	Description string `json:"description"`
-}
-
-func (h *handlerImpl) AddQueryTool(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-
-	var errMsg string
-	var statusCode int
-
-	var args AddQueryToolArgs
-	err := json.NewDecoder(r.Body).Decode(&args)
-	if err != nil {
-		errMsg = "unable to decode request body"
-		statusCode = http.StatusBadRequest
-		slog.Error(errMsg,
-			slog.Int(commonerr.StatusCodeLogKey, statusCode),
-			slog.Any(commonerr.ErrLogKey, err))
-		http.Error(w, errMsg, statusCode)
-		return
-	}
-
-	columns := []metadata.AddQueryToolColumn{}
-	for _, c := range args.Columns {
-		columns = append(columns, metadata.AddQueryToolColumn{
-			Name:        c.Name,
-			Type:        c.Type,
-			Description: c.Description,
-		})
-	}
-
-	userID, ok := r.Context().Value(commonctx.UserIDCtxKey).(*http.Cookie)
-	if !ok {
-		statusCode = http.StatusUnauthorized
-		slog.Error("unable to get user_id cookie",
-			slog.Int(commonerr.StatusCodeLogKey, statusCode))
-		http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
-		return
-	}
-
-	err = h.metadataUsecase.AddQueryTool(r.Context(), metadata.AddQueryToolArgs{
-		UserID:           userID.Value,
-		Description:      args.Description,
-		Query:            args.Query,
-		Columns:          columns,
-		ParamName:        args.ParamName,
-		ParamType:        args.ParamType,
-		ParamDescription: args.ParamDescription,
-	})
-	if err != nil {
-		errMsg = "unable to add query tool"
-		statusCode = http.StatusInternalServerError
-		slog.Error(errMsg,
-			slog.Int(commonerr.StatusCodeLogKey, statusCode),
-			slog.Any(commonerr.ErrLogKey, err))
-		http.Error(w, errMsg, statusCode)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("query tool is added"))
-}
-
-type GetQueryToolResult struct {
-	Rows []GetQueryToolRow `json:"rows"`
-}
-
-type GetQueryToolRow struct {
-	ToolDescription  string               `json:"tool_description"`
-	TableName        string               `json:"table_name"`
-	Query            string               `json:"query"`
-	Columns          []GetQueryToolColumn `json:"columns"`
-	ParamName        string               `json:"param_name"`
-	ParamType        string               `json:"param_type"`
-	ParamDescription string               `json:"param_description"`
-}
-
-type GetQueryToolColumn struct {
-	Name        string `json:"name"`
-	Type        string `json:"type"`
-	Description string `json:"description"`
-}
-
-func (h *handlerImpl) GetQueryTool(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-
-	var errMsg string
-	var statusCode int
-
-	userID, ok := r.Context().Value(commonctx.UserIDCtxKey).(*http.Cookie)
-	if !ok {
-		statusCode = http.StatusUnauthorized
-		slog.Error("unable to get user_id cookie",
-			slog.Int(commonerr.StatusCodeLogKey, statusCode))
-		http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
-		return
-	}
-
-	tools, err := h.metadataUsecase.GetQueryTool(r.Context(), metadata.GetQueryToolArgs{
-		UserID: userID.Value,
-	})
-	if err != nil {
-		errMsg = "unable to get tool"
-		statusCode = http.StatusInternalServerError
-		slog.Error(errMsg,
-			slog.Int(commonerr.StatusCodeLogKey, statusCode),
-			slog.Any(commonerr.ErrLogKey, err))
-		http.Error(w, errMsg, statusCode)
-		return
-	}
-
-	resultRows := []GetQueryToolRow{}
-	for _, r := range tools.Rows {
-		columns := []GetQueryToolColumn{}
-		for _, c := range r.Columns {
-			columns = append(columns, GetQueryToolColumn{
-				Name:        c.Name,
-				Type:        c.Type,
-				Description: c.Description,
-			})
-		}
-
-		resultRows = append(resultRows, GetQueryToolRow{
-			ToolDescription:  r.ToolDescription,
-			Query:            r.Query,
-			Columns:          columns,
 			ParamName:        r.ParamName,
 			ParamType:        r.ParamType,
 			ParamDescription: r.ParamDescription,
