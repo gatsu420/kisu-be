@@ -94,6 +94,8 @@ func (r *repositoryImpl) GetUserToken(ctx context.Context, args GetUserTokenArgs
 type AddToolArgs struct {
 	UserID           string
 	ToolDescription  string
+	Project          string
+	Dataset          string
 	TableName        string
 	Columns          []AddToolColumn
 	Type             commontype.ToolType
@@ -124,11 +126,13 @@ func (r *repositoryImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 	var toolID string
 	err = tx.QueryRow(ctx, `
 		insert into tool (
-			user_id, tool_description, table_name, columns, type,
+			user_id, tool_description, project, dataset, table_name,
+			columns, type,
 			param_name, param_type, param_description
-		) values ($1, $2, $3, $4, $5, $6, $7, $8)
+		) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		returning id
-	`, args.UserID, args.ToolDescription, args.TableName, args.Columns, args.Type,
+	`, args.UserID, args.ToolDescription, args.Project, args.Dataset, args.TableName,
+		args.Columns, args.Type,
 		args.ParamName, args.ParamType, args.ParamDescription).
 		Scan(&toolID)
 	if err != nil {
@@ -170,6 +174,8 @@ type GetToolResult struct {
 
 type GetToolRow struct {
 	ToolDescription  string
+	Project          string
+	Dataset          string
 	TableName        string
 	Columns          []GetToolColumn
 	Type             commontype.ToolType
@@ -208,6 +214,8 @@ func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) (GetTool
 		, breakdown as (
 			select
 				t.tool_description,
+				t.project,
+				t.dataset,
 				t.table_name,
 				t.columns,
 				t.type,
@@ -233,6 +241,8 @@ func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) (GetTool
 		var resultRow GetToolRow
 		err := rows.Scan(
 			&resultRow.ToolDescription,
+			&resultRow.Project,
+			&resultRow.Dataset,
 			&resultRow.TableName,
 			&resultRow.Columns,
 			&resultRow.Type,

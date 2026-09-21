@@ -57,7 +57,9 @@ CREATE TABLE public.tool (
     param_name text DEFAULT ''::text NOT NULL,
     param_type text DEFAULT ''::text NOT NULL,
     param_description text DEFAULT ''::text NOT NULL,
-    type text DEFAULT ''::text NOT NULL
+    type text DEFAULT ''::text NOT NULL,
+    project text DEFAULT ''::text NOT NULL,
+    dataset text DEFAULT ''::text NOT NULL
 );
 
 
@@ -183,4 +185,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260918080629'),
     ('20260919152731'),
     ('20260920051354'),
-    ('20260920130911');
+    ('20260920130911'),
+    ('20260921044553');

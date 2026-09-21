@@ -76,6 +76,8 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 
 type AddToolArgs struct {
 	ToolDescription  string              `json:"tool_description"`
+	Project          string              `json:"project"`
+	Dataset          string              `json:"dataset"`
 	TableName        string              `json:"table_name"`
 	Columns          []AddToolColumn     `json:"columns"`
 	Type             commontype.ToolType `json:"type"`
@@ -143,6 +145,8 @@ func (h *handlerImpl) AddTool(w http.ResponseWriter, r *http.Request) {
 	err = h.metadataUsecase.AddTool(r.Context(), metadata.AddToolArgs{
 		UserID:           userID.Value,
 		ToolDescription:  args.ToolDescription,
+		Project:          args.Project,
+		Dataset:          args.Dataset,
 		TableName:        args.TableName,
 		Columns:          columns,
 		Type:             args.Type,
@@ -171,6 +175,8 @@ type GetToolResult struct {
 
 type GetToolRow struct {
 	ToolDescription  string              `json:"tool_description"`
+	Project          string              `json:"project"`
+	Dataset          string              `json:"dataset"`
 	TableName        string              `json:"table_name"`
 	Columns          []GetToolColumn     `json:"columns"`
 	Type             commontype.ToolType `json:"type"`
@@ -240,6 +246,8 @@ func (h *handlerImpl) GetTool(w http.ResponseWriter, r *http.Request) {
 
 		resultRows = append(resultRows, GetToolRow{
 			ToolDescription:  r.ToolDescription,
+			Project:          r.Project,
+			Dataset:          r.Dataset,
 			TableName:        r.TableName,
 			Columns:          columns,
 			Type:             r.Type,

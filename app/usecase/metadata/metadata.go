@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 
 	"github.com/gatsu420/kisu-be/app/repository/bqrepo"
 	"github.com/gatsu420/kisu-be/app/repository/pgrepo"
+	"github.com/gatsu420/kisu-be/common/commoncrypto"
 	"github.com/gatsu420/kisu-be/common/commontype"
 	"golang.org/x/oauth2"
 )
@@ -75,6 +75,8 @@ func (u *usecaseImpl) GetUserToken(ctx context.Context, args GetUserTokenArgs) (
 type AddToolArgs struct {
 	UserID           string
 	ToolDescription  string
+	Project          string
+	Dataset          string
 	TableName        string
 	Columns          []AddToolColumn
 	Type             commontype.ToolType
@@ -100,15 +102,8 @@ func (u *usecaseImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 		return errors.New("invalid type value")
 	}
 
-	switch args.Type {
-	case commontype.TableToolType:
-		if args.TableName == "" {
-			return errors.New("table type must have table name")
-		}
-	case commontype.QueryToolType:
-		if args.TableName != "" {
-			return errors.New("query type must not have table name")
-		}
+	if args.Type == commontype.QueryToolType {
+		args.TableName = commoncrypto.GetRandomTableName()
 	}
 
 	columns := []pgrepo.AddToolColumn{}
@@ -131,6 +126,8 @@ func (u *usecaseImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 	err := u.pgRepo.AddTool(ctx, pgrepo.AddToolArgs{
 		UserID:           args.UserID,
 		ToolDescription:  args.ToolDescription,
+		Project:          args.Project,
+		Dataset:          args.Dataset,
 		TableName:        args.TableName,
 		Columns:          columns,
 		Type:             args.Type,
@@ -156,6 +153,8 @@ type GetToolResult struct {
 
 type GetToolRow struct {
 	ToolDescription  string
+	Project          string
+	Dataset          string
 	TableName        string
 	Columns          []GetToolColumn
 	Type             commontype.ToolType
@@ -205,6 +204,8 @@ func (u *usecaseImpl) GetTool(ctx context.Context, args GetToolArgs) (GetToolRes
 
 		resultRows = append(resultRows, GetToolRow{
 			ToolDescription:  r.ToolDescription,
+			Project:          r.Project,
+			Dataset:          r.Dataset,
 			TableName:        r.TableName,
 			Columns:          resultColumns,
 			Type:             r.Type,
@@ -221,9 +222,12 @@ func (u *usecaseImpl) GetTool(ctx context.Context, args GetToolArgs) (GetToolRes
 }
 
 type CallToolArgs struct {
-	TableName   string
-	RawToolArgs []byte
-	Token       *oauth2.Token
+	Type          commontype.ToolType
+	TableLocation string
+	Query         string
+	BuilderQuery  string
+	RawToolArgs   []byte
+	Token         *oauth2.Token
 }
 
 type CallToolResult struct {
@@ -232,9 +236,12 @@ type CallToolResult struct {
 
 func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallToolResult, error) {
 	result, err := u.bqRepo.CallTool(ctx, bqrepo.CallToolArgs{
-		TableName:   args.TableName,
-		RawToolArgs: args.RawToolArgs,
-		Token:       args.Token,
+		Type:          args.Type,
+		TableLocation: args.TableLocation,
+		Query:         args.Query,
+		BuilderQuery:  args.BuilderQuery,
+		RawToolArgs:   args.RawToolArgs,
+		Token:         args.Token,
 	})
 	if err != nil {
 		return CallToolResult{}, err

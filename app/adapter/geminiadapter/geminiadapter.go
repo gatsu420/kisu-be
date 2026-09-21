@@ -9,6 +9,7 @@ import (
 
 	"github.com/gatsu420/kisu-be/app/usecase/metadata"
 	"github.com/gatsu420/kisu-be/common/commonctx"
+	"github.com/gatsu420/kisu-be/common/commontype"
 	"golang.org/x/oauth2"
 	"google.golang.org/genai"
 )
@@ -32,6 +33,9 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 	if err != nil {
 		return GetContentResult{}, fmt.Errorf("unable to construct function declarations: %w", err)
 	}
+
+	marshaledFuncDeclarations, _ := json.MarshalIndent(funcDeclarations.declarations, "", " ")
+	fmt.Println(string(marshaledFuncDeclarations))
 
 	geminiTools := []*genai.Tool{
 		{FunctionDeclarations: funcDeclarations.declarations},
@@ -92,11 +96,22 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 			"hashed_"+paramName,
 			stringifiedFuncCallParam)
 
+	funcCallBuilderQuery, ok := funcCall.Args["builder_query"]
+	if !ok {
+		return GetContentResult{}, errors.New("there is no builder_query key inside func call args")
+	}
+
+	stringifiedFuncCallBuilderQuery, ok := funcCallBuilderQuery.(string)
+	if !ok {
+		return GetContentResult{}, errors.New("unable to cast func call builder query to string")
+	}
+
 	marshaledFuncCall, err := json.MarshalIndent(funcCall, "", " ")
 	if err != nil {
 		return GetContentResult{}, fmt.Errorf("unable to marshal tool: %w", err)
 	}
 	stringifiedFuncCalls := string(marshaledFuncCall)
+	fmt.Println(string(stringifiedFuncCalls))
 
 	funcCallArgs, err := json.Marshal(funcCall.Args)
 	if err != nil {
@@ -104,9 +119,12 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 	}
 
 	toolResult, err := a.metadataUsecase.CallTool(ctx, metadata.CallToolArgs{
-		TableName:   funcCall.Name,
-		RawToolArgs: funcCallArgs,
-		Token:       args.Token,
+		Type:          funcDeclarations.toolTypes[funcCall.Name],
+		TableLocation: funcCall.Name,
+		Query:         stringifiedFuncCallQuery,
+		BuilderQuery:  stringifiedFuncCallBuilderQuery,
+		RawToolArgs:   funcCallArgs,
+		Token:         args.Token,
 	})
 	if err != nil {
 		return GetContentResult{}, fmt.Errorf("unable to call tool: %w", err)
@@ -124,6 +142,7 @@ type getFuncDeclarationArgs struct {
 
 type getFuncDeclarationResult struct {
 	declarations []*genai.FunctionDeclaration
+	toolTypes    map[string]commontype.ToolType
 }
 
 func (a *adapterImpl) getFuncDeclaration(ctx context.Context, args getFuncDeclarationArgs) (getFuncDeclarationResult, error) {
@@ -135,37 +154,67 @@ func (a *adapterImpl) getFuncDeclaration(ctx context.Context, args getFuncDeclar
 	}
 
 	funcDeclarations := []*genai.FunctionDeclaration{}
+	toolTypes := map[string]commontype.ToolType{}
 	for _, r := range tools.Rows {
+		if !r.Type.ValidateToolType() {
+			return getFuncDeclarationResult{}, errors.New("invalid tool type")
+		}
+
 		columns := []string{}
 		for _, c := range r.Columns {
 			columns = append(columns, fmt.Sprintf("- %v (%v): %v",
 				c.Name, c.Type, c.Description))
 		}
 
-		examples := []string{}
-		for _, e := range r.Examples {
-			query := strings.ReplaceAll(e.Query,
-				r.TableName,
-				fmt.Sprintf("%v_hashed_filter", r.TableName))
-			examples = append(examples, fmt.Sprintf("- %v\n\t%v",
-				e.Description, query))
+		var builderQuery string
+		if r.Type == commontype.QueryToolType {
+			builderQuery = fmt.Sprintf(`
+			That view is build using this builder query:
+			%v
+			`, r.Examples[0].Query)
 		}
 
+		examples := []string{}
+		for _, e := range r.Examples {
+			if r.Type == commontype.TableToolType {
+				queryWithHashedFilter := strings.ReplaceAll(e.Query,
+					r.TableName,
+					r.TableName+"_hashed_filter")
+				examples = append(examples, fmt.Sprintf("- %s\n\t%s",
+					e.Description, queryWithHashedFilter))
+			} else {
+				examples = append(examples, fmt.Sprintf("- %s\n\t%s",
+					e.Description, e.Query))
+			}
+		}
+
+		tableLocation := fmt.Sprintf("%s.%s.%s",
+			r.Project,
+			r.Dataset,
+			r.TableName)
+		toolTypes[tableLocation] = r.Type
+
 		funcDeclarations = append(funcDeclarations, &genai.FunctionDeclaration{
-			Name: r.TableName,
+			Name: tableLocation,
 			Description: fmt.Sprintf(`
-				Run select-only query from %v_hashed_filter to get information about: %v.
+				Run select-only query from %s.%s.%s_hashed_filter to get
+				information about: %s.
+
+				%s
 
 				The view has these columns:
-				%v
+				%s
 
 				Sample query using the view:
-				%v
-				`,
+				%s
+				`, r.Project,
+				r.Dataset,
 				r.TableName,
 				r.ToolDescription,
+				builderQuery,
 				strings.Join(columns, "\n"),
 				strings.Join(examples, "\n")),
+
 			Parameters: &genai.Schema{
 				Type: genai.TypeObject,
 				Properties: map[string]*genai.Schema{
@@ -177,9 +226,14 @@ func (a *adapterImpl) getFuncDeclaration(ctx context.Context, args getFuncDeclar
 						Type:        genai.TypeString,
 						Description: "Query to get wanted information without WHERE",
 					},
+					"builder_query": {
+						Type:        genai.TypeString,
+						Description: "Query that is used to build *_hashed_filter view",
+					},
 				},
-				Required: []string{"hashed_" + r.ParamName, "query"},
+				Required: []string{"hashed_" + r.ParamName, "query", "builder_query"},
 			},
+
 			Response: &genai.Schema{
 				Type:        genai.TypeArray,
 				Items:       &genai.Schema{Type: genai.TypeString},
@@ -190,5 +244,6 @@ func (a *adapterImpl) getFuncDeclaration(ctx context.Context, args getFuncDeclar
 
 	return getFuncDeclarationResult{
 		declarations: funcDeclarations,
+		toolTypes:    toolTypes,
 	}, nil
 }

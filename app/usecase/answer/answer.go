@@ -8,8 +8,8 @@ import (
 	"unicode"
 
 	"github.com/gatsu420/kisu-be/app/adapter/geminiadapter"
+	"github.com/gatsu420/kisu-be/common/commoncrypto"
 	"github.com/gatsu420/kisu-be/common/commonctx"
-	"github.com/gatsu420/kisu-be/common/commonhash"
 	"golang.org/x/oauth2"
 )
 
@@ -29,6 +29,7 @@ func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAns
 	if err != nil {
 		return GetAnswerResult{}, err
 	}
+	fmt.Println("hashedParam", hashedParam)
 
 	token, ok := ctx.Value(commonctx.TokenCtxKey).(*oauth2.Token)
 	if !ok {
@@ -60,6 +61,7 @@ func (u *usecaseImpl) hashParam(ctx context.Context, param string) (string, erro
 		return "", fmt.Errorf("unable to get salt from context")
 	}
 
-	hashedParts := commonhash.HashStringSlice(paramParts, salt)
+	fmt.Println("salt", salt)
+	hashedParts := commoncrypto.HashStringSlice(paramParts, salt)
 	return strings.Join(hashedParts, ","), nil
 }
