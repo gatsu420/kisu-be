@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"unicode"
 
 	"github.com/gatsu420/kisu-be/app/adapter/geminiadapter"
 	"github.com/gatsu420/kisu-be/common/commoncrypto"
@@ -54,7 +53,7 @@ func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAns
 
 func (u *usecaseImpl) hashParam(ctx context.Context, param string) (string, error) {
 	paramParts := strings.FieldsFunc(param, func(r rune) bool {
-		return r == ',' || unicode.IsSpace(r)
+		return r == ',' || r == '\n'
 	})
 	salt, ok := ctx.Value(commonctx.SaltCtxKey).(string)
 	if !ok {
