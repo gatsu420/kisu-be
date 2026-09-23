@@ -9,15 +9,19 @@ import (
 	"cloud.google.com/go/bigquery"
 	"github.com/gatsu420/kisu-be/app/adapter/googleauthadapter"
 	"github.com/gatsu420/kisu-be/common/commonctx"
+	"github.com/gatsu420/kisu-be/common/commontype"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 )
 
 type CallToolArgs struct {
-	TableName   string
-	RawToolArgs []byte
-	Token       *oauth2.Token
+	Type          commontype.ToolType
+	TableLocation string
+	Query         string
+	BuilderQuery  string
+	RawToolArgs   []byte
+	Token         *oauth2.Token
 }
 
 type CallToolResult struct {
@@ -34,9 +38,9 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 		return CallToolResult{}, fmt.Errorf("unable to create bigquery client: %w", err)
 	}
 
-	tableNameParts := strings.Split(args.TableName, ".")
-	if len(tableNameParts) != 3 {
-		return CallToolResult{}, fmt.Errorf("table name must be in the form of project.dataset.table")
+	tableLocationParts := strings.Split(args.TableLocation, ".")
+	if len(tableLocationParts) != 3 {
+		return CallToolResult{}, fmt.Errorf("table location must be in the form of project.dataset.table")
 	}
 
 	defer bqClient.Close()
@@ -46,13 +50,19 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 			err = dropErr
 		}
 	}(ctx, dropHashedFilterViewArgs{
-		bqClient:       bqClient,
-		tableNameParts: tableNameParts,
+		bqClient:  bqClient,
+		dataset:   tableLocationParts[1],
+		tableName: tableLocationParts[2],
 	})
 
 	err = createHashedFilterView(ctx, createHashedFilterViewArgs{
-		bqClient:       bqClient,
-		tableNameParts: tableNameParts,
+		bqClient:     bqClient,
+		toolType:     args.Type,
+		project:      tableLocationParts[0],
+		dataset:      tableLocationParts[1],
+		tableName:    tableLocationParts[2],
+		query:        args.Query,
+		builderQuery: args.BuilderQuery,
 	})
 	if err != nil {
 		return CallToolResult{}, fmt.Errorf("unable to create hashed filter view: %w", err)
@@ -66,13 +76,14 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 		return CallToolResult{}, fmt.Errorf("unable to select hashed filter view: %w", err)
 	}
 
-	err = dropHashedFilterView(ctx, dropHashedFilterViewArgs{
-		bqClient:       bqClient,
-		tableNameParts: tableNameParts,
-	})
-	if err != nil {
-		return CallToolResult{}, fmt.Errorf("unable to drop hashed filter view: %w", err)
-	}
+	// err = dropHashedFilterView(ctx, dropHashedFilterViewArgs{
+	// 	bqClient:  bqClient,
+	// 	dataset:   tableLocationParts[1],
+	// 	tableName: tableLocationParts[2],
+	// })
+	// if err != nil {
+	// 	return CallToolResult{}, fmt.Errorf("unable to drop hashed filter view: %w", err)
+	// }
 
 	return CallToolResult{
 		Rows: selectResult.rows,
@@ -80,8 +91,13 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 }
 
 type createHashedFilterViewArgs struct {
-	bqClient       *bigquery.Client
-	tableNameParts []string
+	bqClient     *bigquery.Client
+	toolType     commontype.ToolType
+	project      string
+	dataset      string
+	tableName    string
+	query        string
+	builderQuery string
 }
 
 func createHashedFilterView(ctx context.Context, args createHashedFilterViewArgs) error {
@@ -95,18 +111,36 @@ func createHashedFilterView(ctx context.Context, args createHashedFilterViewArgs
 		return fmt.Errorf("unable to get salt from context")
 	}
 
-	err := args.bqClient.Dataset(args.tableNameParts[1]).
-		Table(args.tableNameParts[2]+"_hashed_filter").
-		Create(ctx, &bigquery.TableMetadata{
-			ViewQuery: fmt.Sprintf(`
+	var query string
+	switch args.toolType {
+	case commontype.TableToolType:
+		query = fmt.Sprintf(`
 			select
 				*,
-				to_base64(sha256(concat(%v, "%v"))) hashed_%v
-			from %v
+				to_base64(sha256(concat(%s, "%s"))) hashed_%s
+			from %s
 			`, filter,
-				salt,
-				filter,
-				args.tableNameParts[1]+"."+args.tableNameParts[2]),
+			salt,
+			filter,
+			fmt.Sprintf("%s.%s.%s",
+				args.project,
+				args.dataset,
+				args.tableName))
+	case commontype.QueryToolType:
+		query = fmt.Sprintf(`
+			select
+				*,
+				to_base64(sha256(concat(%s, "%s"))) hashed_%s
+			from (%s)
+		`, filter, salt, filter, args.builderQuery)
+	}
+
+	fmt.Println(query)
+	err := args.bqClient.Dataset(args.dataset).
+		Table(args.tableName+"_hashed_filter").
+		Create(ctx, &bigquery.TableMetadata{
+			// query in here must be view builder, not query from LLM
+			ViewQuery: query,
 		})
 	if err != nil {
 		return fmt.Errorf("unable to create view containing hashed filter: %v", err)
@@ -176,13 +210,14 @@ func selectHashedFilterView(ctx context.Context, args selectHashedFilterViewArgs
 }
 
 type dropHashedFilterViewArgs struct {
-	bqClient       *bigquery.Client
-	tableNameParts []string
+	bqClient  *bigquery.Client
+	dataset   string
+	tableName string
 }
 
 func dropHashedFilterView(ctx context.Context, args dropHashedFilterViewArgs) error {
-	err := args.bqClient.Dataset(args.tableNameParts[1]).
-		Table(args.tableNameParts[2] + "_hashed_filter").
+	err := args.bqClient.Dataset(args.dataset).
+		Table(args.tableName + "_hashed_filter").
 		Delete(ctx)
 	if err != nil {
 		return fmt.Errorf("unable to drop hashed filter view: %w", err)

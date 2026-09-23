@@ -10,6 +10,7 @@ import (
 	"github.com/gatsu420/kisu-be/app/usecase/metadata"
 	"github.com/gatsu420/kisu-be/common/commonctx"
 	"github.com/gatsu420/kisu-be/common/commonerr"
+	"github.com/gatsu420/kisu-be/common/commontype"
 	"github.com/google/uuid"
 )
 
@@ -74,13 +75,16 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 }
 
 type AddToolArgs struct {
-	ToolDescription  string                `json:"tool_description"`
-	TableName        string                `json:"table_name"`
-	Columns          []AddToolColumn       `json:"columns"`
-	QueryExamples    []AddToolQueryExample `json:"query_examples"`
-	ParamName        string                `json:"param_name"`
-	ParamType        string                `json:"param_type"`
-	ParamDescription string                `json:"param_description"`
+	ToolDescription  string              `json:"tool_description"`
+	Project          string              `json:"project"`
+	Dataset          string              `json:"dataset"`
+	TableName        string              `json:"table_name"`
+	Columns          []AddToolColumn     `json:"columns"`
+	Type             commontype.ToolType `json:"type"`
+	Examples         []AddToolExample    `json:"examples"`
+	ParamName        string              `json:"param_name"`
+	ParamType        string              `json:"param_type"`
+	ParamDescription string              `json:"param_description"`
 }
 
 type AddToolColumn struct {
@@ -89,7 +93,7 @@ type AddToolColumn struct {
 	Description string `json:"description"`
 }
 
-type AddToolQueryExample struct {
+type AddToolExample struct {
 	Description string `json:"description"`
 	Query       string `json:"query"`
 }
@@ -121,11 +125,11 @@ func (h *handlerImpl) AddTool(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	queryExamples := []metadata.AddToolQueryExample{}
-	for _, qe := range args.QueryExamples {
-		queryExamples = append(queryExamples, metadata.AddToolQueryExample{
-			Description: qe.Description,
-			Query:       qe.Query,
+	examples := []metadata.AddToolExample{}
+	for _, e := range args.Examples {
+		examples = append(examples, metadata.AddToolExample{
+			Description: e.Description,
+			Query:       e.Query,
 		})
 	}
 
@@ -141,9 +145,12 @@ func (h *handlerImpl) AddTool(w http.ResponseWriter, r *http.Request) {
 	err = h.metadataUsecase.AddTool(r.Context(), metadata.AddToolArgs{
 		UserID:           userID.Value,
 		ToolDescription:  args.ToolDescription,
+		Project:          args.Project,
+		Dataset:          args.Dataset,
 		TableName:        args.TableName,
 		Columns:          columns,
-		QueryExamples:    queryExamples,
+		Type:             args.Type,
+		Examples:         examples,
 		ParamName:        args.ParamName,
 		ParamType:        args.ParamType,
 		ParamDescription: args.ParamDescription,
@@ -167,13 +174,16 @@ type GetToolResult struct {
 }
 
 type GetToolRow struct {
-	ToolDescription  string                `json:"tool_description"`
-	TableName        string                `json:"table_name"`
-	Columns          []GetToolColumn       `json:"columns"`
-	QueryExamples    []GetToolQueryExample `json:"query_examples"`
-	ParamName        string                `json:"param_name"`
-	ParamType        string                `json:"param_type"`
-	ParamDescription string                `json:"param_description"`
+	ToolDescription  string              `json:"tool_description"`
+	Project          string              `json:"project"`
+	Dataset          string              `json:"dataset"`
+	TableName        string              `json:"table_name"`
+	Columns          []GetToolColumn     `json:"columns"`
+	Type             commontype.ToolType `json:"type"`
+	Examples         []GetToolExample    `json:"examples"`
+	ParamName        string              `json:"param_name"`
+	ParamType        string              `json:"param_type"`
+	ParamDescription string              `json:"param_description"`
 }
 
 type GetToolColumn struct {
@@ -182,7 +192,7 @@ type GetToolColumn struct {
 	Description string `json:"description"`
 }
 
-type GetToolQueryExample struct {
+type GetToolExample struct {
 	Description string `json:"description"`
 	Query       string `json:"query"`
 }
@@ -226,19 +236,22 @@ func (h *handlerImpl) GetTool(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 
-		queryExamples := []GetToolQueryExample{}
-		for _, qe := range r.QueryExamples {
-			queryExamples = append(queryExamples, GetToolQueryExample{
-				Description: qe.Description,
-				Query:       qe.Query,
+		examples := []GetToolExample{}
+		for _, e := range r.Examples {
+			examples = append(examples, GetToolExample{
+				Description: e.Description,
+				Query:       e.Query,
 			})
 		}
 
 		resultRows = append(resultRows, GetToolRow{
 			ToolDescription:  r.ToolDescription,
+			Project:          r.Project,
+			Dataset:          r.Dataset,
 			TableName:        r.TableName,
 			Columns:          columns,
-			QueryExamples:    queryExamples,
+			Type:             r.Type,
+			Examples:         examples,
 			ParamName:        r.ParamName,
 			ParamType:        r.ParamType,
 			ParamDescription: r.ParamDescription,

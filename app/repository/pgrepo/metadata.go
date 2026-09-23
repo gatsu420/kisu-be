@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gatsu420/kisu-be/common/commontype"
 	"golang.org/x/oauth2"
 )
 
@@ -93,9 +94,12 @@ func (r *repositoryImpl) GetUserToken(ctx context.Context, args GetUserTokenArgs
 type AddToolArgs struct {
 	UserID           string
 	ToolDescription  string
+	Project          string
+	Dataset          string
 	TableName        string
 	Columns          []AddToolColumn
-	QueryExamples    []AddToolQueryExample
+	Type             commontype.ToolType
+	Examples         []AddToolExample
 	ParamName        string
 	ParamType        string
 	ParamDescription string
@@ -107,42 +111,54 @@ type AddToolColumn struct {
 	Description string `json:"description"`
 }
 
-type AddToolQueryExample struct {
-	Description string `json:"description"`
-	Query       string `json:"query"`
+type AddToolExample struct {
+	Description string
+	Query       string
 }
 
 func (r *repositoryImpl) AddTool(ctx context.Context, args AddToolArgs) error {
-	trx, err := r.pool.Begin(ctx)
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("unable to create transaction: %w", err)
+		return fmt.Errorf("unable to begin transaction for adding tool: %w", err)
 	}
-	defer trx.Rollback(ctx)
+	defer tx.Rollback(ctx)
 
 	var toolID string
-	err = trx.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		insert into tool (
-			user_id, tool_description, table_name, columns, query_examples
-		) values ($1, $2, $3, $4, $5)
+			user_id, tool_description, project, dataset, table_name,
+			columns, type,
+			param_name, param_type, param_description
+		) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		returning id
-	`, args.UserID, args.ToolDescription, args.TableName, args.Columns, args.QueryExamples).
+	`, args.UserID, args.ToolDescription, args.Project, args.Dataset, args.TableName,
+		args.Columns, args.Type,
+		args.ParamName, args.ParamType, args.ParamDescription).
 		Scan(&toolID)
 	if err != nil {
-		return fmt.Errorf("unable to add tool: %w", err)
+		return fmt.Errorf("unable to insert to tool while in transaction: %w", err)
 	}
 
-	_, err = trx.Exec(ctx, `
-		insert into tool_param (
-			tool_id, name, type, description
-		) values ($1, $2, $3, $4)
-	`, toolID, args.ParamName, args.ParamType, args.ParamDescription)
+	exampleQuery := make([]string, len(args.Examples))
+	exampleDescription := make([]string, len(args.Examples))
+	for i, e := range args.Examples {
+		exampleQuery[i] = e.Query
+		exampleDescription[i] = e.Description
+	}
+	_, err = tx.Exec(ctx, `
+		insert into example (
+			tool_id, query, description
+		)
+		select $1, q, d
+		from unnest($2::text[], $3::text[]) as t(q, d)
+	`, toolID, exampleQuery, exampleDescription)
 	if err != nil {
-		return fmt.Errorf("unable to add tool_param when adding tool: %w", err)
+		return fmt.Errorf("unable to insert to example while in transaction: %w", err)
 	}
 
-	err = trx.Commit(ctx)
+	err = tx.Commit(ctx)
 	if err != nil {
-		return fmt.Errorf("unable to commit transaction when adding tool: %w", err)
+		return fmt.Errorf("unable to commit transaction for adding tool: %w", err)
 	}
 
 	return nil
@@ -158,9 +174,12 @@ type GetToolResult struct {
 
 type GetToolRow struct {
 	ToolDescription  string
+	Project          string
+	Dataset          string
 	TableName        string
 	Columns          []GetToolColumn
-	QueryExamples    []GetToolQueryExample
+	Type             commontype.ToolType
+	Examples         []GetToolExample
 	ParamName        string
 	ParamType        string
 	ParamDescription string
@@ -172,25 +191,45 @@ type GetToolColumn struct {
 	Description string
 }
 
-type GetToolQueryExample struct {
+type GetToolExample struct {
 	Description string
 	Query       string
 }
 
 func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) (GetToolResult, error) {
 	rows, err := r.pool.Query(ctx, `
-		select
-			t.tool_description,
-			t.table_name,
-			t.columns,
-			t.query_examples,
-			tp.name param_name,
-			tp.type param_type,
-			tp.description param_description
-		from tool t
-		left join tool_param tp on
-			t.id = tp.tool_id
-		where t.user_id = $1
+		with tool_example as (
+			select
+				tool_id,
+				jsonb_agg(
+					jsonb_build_object(
+						'description', description,
+						'query', query
+					)
+				) example
+			from example
+			group by 1
+		)
+
+		, breakdown as (
+			select
+				t.tool_description,
+				t.project,
+				t.dataset,
+				t.table_name,
+				t.columns,
+				t.type,
+				coalesce(te.example, '[]'::jsonb) example,
+				t.param_name,
+				t.param_type,
+				t.param_description
+			from tool t
+			left join tool_example te on
+				t.id = te.tool_id
+			where t.user_id = $1
+		)
+
+		select * from breakdown
 	`, args.UserID)
 	if err != nil {
 		return GetToolResult{}, fmt.Errorf("unable to get tool: %w", err)
@@ -202,9 +241,12 @@ func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) (GetTool
 		var resultRow GetToolRow
 		err := rows.Scan(
 			&resultRow.ToolDescription,
+			&resultRow.Project,
+			&resultRow.Dataset,
 			&resultRow.TableName,
 			&resultRow.Columns,
-			&resultRow.QueryExamples,
+			&resultRow.Type,
+			&resultRow.Examples,
 			&resultRow.ParamName,
 			&resultRow.ParamType,
 			&resultRow.ParamDescription,

@@ -1,8 +1,11 @@
-package commonhash
+package commoncrypto
 
 import (
 	"crypto/sha256"
 	"encoding/base64"
+	"strings"
+
+	"github.com/google/uuid"
 )
 
 func HashStringSlice(slc []string, salt string) []string {
@@ -26,4 +29,10 @@ func HashStringSlice(slc []string, salt string) []string {
 	}
 
 	return result
+}
+
+func GetRandomTableName() string {
+	return strings.ReplaceAll(uuid.New().String(),
+		"-",
+		"")
 }

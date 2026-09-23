@@ -3,10 +3,13 @@ package metadata
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/gatsu420/kisu-be/app/repository/bqrepo"
 	"github.com/gatsu420/kisu-be/app/repository/pgrepo"
+	"github.com/gatsu420/kisu-be/common/commoncrypto"
+	"github.com/gatsu420/kisu-be/common/commontype"
 	"golang.org/x/oauth2"
 )
 
@@ -72,9 +75,12 @@ func (u *usecaseImpl) GetUserToken(ctx context.Context, args GetUserTokenArgs) (
 type AddToolArgs struct {
 	UserID           string
 	ToolDescription  string
+	Project          string
+	Dataset          string
 	TableName        string
 	Columns          []AddToolColumn
-	QueryExamples    []AddToolQueryExample
+	Type             commontype.ToolType
+	Examples         []AddToolExample
 	ParamName        string
 	ParamType        string
 	ParamDescription string
@@ -86,12 +92,20 @@ type AddToolColumn struct {
 	Description string
 }
 
-type AddToolQueryExample struct {
+type AddToolExample struct {
 	Description string
 	Query       string
 }
 
 func (u *usecaseImpl) AddTool(ctx context.Context, args AddToolArgs) error {
+	if !args.Type.ValidateToolType() {
+		return errors.New("invalid type value")
+	}
+
+	if args.Type == commontype.QueryToolType {
+		args.TableName = commoncrypto.GetRandomTableName()
+	}
+
 	columns := []pgrepo.AddToolColumn{}
 	for _, c := range args.Columns {
 		columns = append(columns, pgrepo.AddToolColumn{
@@ -101,20 +115,23 @@ func (u *usecaseImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 		})
 	}
 
-	queryExamples := []pgrepo.AddToolQueryExample{}
-	for _, qe := range args.QueryExamples {
-		queryExamples = append(queryExamples, pgrepo.AddToolQueryExample{
-			Description: qe.Description,
-			Query:       qe.Query,
+	examples := []pgrepo.AddToolExample{}
+	for _, e := range args.Examples {
+		examples = append(examples, pgrepo.AddToolExample{
+			Description: e.Description,
+			Query:       e.Query,
 		})
 	}
 
 	err := u.pgRepo.AddTool(ctx, pgrepo.AddToolArgs{
 		UserID:           args.UserID,
 		ToolDescription:  args.ToolDescription,
+		Project:          args.Project,
+		Dataset:          args.Dataset,
 		TableName:        args.TableName,
 		Columns:          columns,
-		QueryExamples:    queryExamples,
+		Type:             args.Type,
+		Examples:         examples,
 		ParamName:        args.ParamName,
 		ParamType:        args.ParamType,
 		ParamDescription: args.ParamDescription,
@@ -136,9 +153,12 @@ type GetToolResult struct {
 
 type GetToolRow struct {
 	ToolDescription  string
+	Project          string
+	Dataset          string
 	TableName        string
 	Columns          []GetToolColumn
-	QueryExamples    []GetToolQueryExample
+	Type             commontype.ToolType
+	Examples         []GetToolExample
 	ParamName        string
 	ParamType        string
 	ParamDescription string
@@ -150,7 +170,7 @@ type GetToolColumn struct {
 	Description string
 }
 
-type GetToolQueryExample struct {
+type GetToolExample struct {
 	Description string
 	Query       string
 }
@@ -174,19 +194,22 @@ func (u *usecaseImpl) GetTool(ctx context.Context, args GetToolArgs) (GetToolRes
 			})
 		}
 
-		resultQueryExamples := []GetToolQueryExample{}
-		for _, qe := range r.QueryExamples {
-			resultQueryExamples = append(resultQueryExamples, GetToolQueryExample{
-				Description: qe.Description,
-				Query:       qe.Query,
+		resultExamples := []GetToolExample{}
+		for _, e := range r.Examples {
+			resultExamples = append(resultExamples, GetToolExample{
+				Description: e.Description,
+				Query:       e.Query,
 			})
 		}
 
 		resultRows = append(resultRows, GetToolRow{
 			ToolDescription:  r.ToolDescription,
+			Project:          r.Project,
+			Dataset:          r.Dataset,
 			TableName:        r.TableName,
 			Columns:          resultColumns,
-			QueryExamples:    resultQueryExamples,
+			Type:             r.Type,
+			Examples:         resultExamples,
 			ParamName:        r.ParamName,
 			ParamType:        r.ParamType,
 			ParamDescription: r.ParamDescription,
@@ -199,9 +222,12 @@ func (u *usecaseImpl) GetTool(ctx context.Context, args GetToolArgs) (GetToolRes
 }
 
 type CallToolArgs struct {
-	TableName   string
-	RawToolArgs []byte
-	Token       *oauth2.Token
+	Type          commontype.ToolType
+	TableLocation string
+	Query         string
+	BuilderQuery  string
+	RawToolArgs   []byte
+	Token         *oauth2.Token
 }
 
 type CallToolResult struct {
@@ -210,9 +236,12 @@ type CallToolResult struct {
 
 func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallToolResult, error) {
 	result, err := u.bqRepo.CallTool(ctx, bqrepo.CallToolArgs{
-		TableName:   args.TableName,
-		RawToolArgs: args.RawToolArgs,
-		Token:       args.Token,
+		Type:          args.Type,
+		TableLocation: args.TableLocation,
+		Query:         args.Query,
+		BuilderQuery:  args.BuilderQuery,
+		RawToolArgs:   args.RawToolArgs,
+		Token:         args.Token,
 	})
 	if err != nil {
 		return CallToolResult{}, err
