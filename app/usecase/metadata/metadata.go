@@ -103,6 +103,14 @@ func (u *usecaseImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 	}
 
 	if args.Type == commontype.QueryToolType {
+		if len(args.Examples) > 1 {
+			return errors.New("query tool requires just one example")
+		}
+
+		if args.Examples[0].Description != "" {
+			return errors.New("query tool requires example description to be empty")
+		}
+
 		args.TableName = commoncrypto.GetRandomTableName()
 	}
 
