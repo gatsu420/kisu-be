@@ -135,11 +135,9 @@ func createHashedFilterView(ctx context.Context, args createHashedFilterViewArgs
 		`, filter, salt, filter, args.builderQuery)
 	}
 
-	fmt.Println(query)
 	err := args.bqClient.Dataset(args.dataset).
 		Table(args.tableName+"_hashed_filter").
 		Create(ctx, &bigquery.TableMetadata{
-			// query in here must be view builder, not query from LLM
 			ViewQuery: query,
 		})
 	if err != nil {
