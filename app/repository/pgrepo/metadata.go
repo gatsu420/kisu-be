@@ -92,17 +92,15 @@ func (r *repositoryImpl) GetUserToken(ctx context.Context, args GetUserTokenArgs
 }
 
 type AddToolArgs struct {
-	UserID           string
-	ToolDescription  string
-	Project          string
-	Dataset          string
-	TableName        string
-	Columns          []AddToolColumn
-	Type             commontype.ToolType
-	Examples         []AddToolExample
-	ParamName        string
-	ParamType        string
-	ParamDescription string
+	UserID          string
+	ToolDescription string
+	Project         string
+	Dataset         string
+	TableName       string
+	Columns         []AddToolColumn
+	Type            commontype.ToolType
+	Examples        []AddToolExample
+	ParamName       string
 }
 
 type AddToolColumn struct {
@@ -127,13 +125,11 @@ func (r *repositoryImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 	err = tx.QueryRow(ctx, `
 		insert into tool (
 			user_id, tool_description, project, dataset, table_name,
-			columns, type,
-			param_name, param_type, param_description
-		) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			columns, type, param_name
+		) values ($1, $2, $3, $4, $5, $6, $7, $8)
 		returning id
 	`, args.UserID, args.ToolDescription, args.Project, args.Dataset, args.TableName,
-		args.Columns, args.Type,
-		args.ParamName, args.ParamType, args.ParamDescription).
+		args.Columns, args.Type, args.ParamName).
 		Scan(&toolID)
 	if err != nil {
 		return fmt.Errorf("unable to insert to tool while in transaction: %w", err)
@@ -173,16 +169,14 @@ type GetToolResult struct {
 }
 
 type GetToolRow struct {
-	ToolDescription  string
-	Project          string
-	Dataset          string
-	TableName        string
-	Columns          []GetToolColumn
-	Type             commontype.ToolType
-	Examples         []GetToolExample
-	ParamName        string
-	ParamType        string
-	ParamDescription string
+	ToolDescription string
+	Project         string
+	Dataset         string
+	TableName       string
+	Columns         []GetToolColumn
+	Type            commontype.ToolType
+	Examples        []GetToolExample
+	ParamName       string
 }
 
 type GetToolColumn struct {
@@ -220,9 +214,7 @@ func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) (GetTool
 				t.columns,
 				t.type,
 				coalesce(te.example, '[]'::jsonb) example,
-				t.param_name,
-				t.param_type,
-				t.param_description
+				t.param_name
 			from tool t
 			left join tool_example te on
 				t.id = te.tool_id
@@ -248,8 +240,6 @@ func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) (GetTool
 			&resultRow.Type,
 			&resultRow.Examples,
 			&resultRow.ParamName,
-			&resultRow.ParamType,
-			&resultRow.ParamDescription,
 		)
 		if err != nil {
 			return GetToolResult{}, fmt.Errorf("unable to read row when getting tool: %w", err)
