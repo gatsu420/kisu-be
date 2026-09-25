@@ -19,7 +19,6 @@ import (
 	"github.com/gatsu420/kisu-be/app/middleware"
 	"github.com/gatsu420/kisu-be/app/repository/bqrepo"
 	"github.com/gatsu420/kisu-be/app/repository/pgrepo"
-	"github.com/gatsu420/kisu-be/app/repository/staterepo"
 	"github.com/gatsu420/kisu-be/app/usecase/answer"
 	"github.com/gatsu420/kisu-be/app/usecase/metadata"
 	"github.com/gatsu420/kisu-be/common/commonconfig"
@@ -95,7 +94,6 @@ func createServer(ctx context.Context, config commonconfig.Config) (*http.Server
 		return nil, fmt.Errorf("unable to create postgres connection pool: %w", err)
 	}
 	pgRepo := pgrepo.NewRepository(pgPool)
-	stateRepo := staterepo.NewRepository()
 
 	genaiClient, err := genai.NewClient(ctx, &genai.ClientConfig{
 		APIKey: config.GeminiApiKey,
@@ -108,7 +106,7 @@ func createServer(ctx context.Context, config commonconfig.Config) (*http.Server
 	geminiAdapter := geminiadapter.NewAdapter(genaiClient, metadataUsecase)
 	answerUsecase := answer.NewUsecase(geminiAdapter)
 
-	authHandler := authhandlerv1.NewHandler(googleAuth, metadataUsecase, stateRepo)
+	authHandler := authhandlerv1.NewHandler(googleAuth, metadataUsecase)
 	answerHandler := answerhandlerv1.NewHandler(metadataUsecase, answerUsecase)
 
 	mux := http.NewServeMux()
