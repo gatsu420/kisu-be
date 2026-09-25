@@ -20,7 +20,14 @@ func (h *handlerImpl) GetPermission(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	state := uuid.New().String()
-	h.stateRepo.Save(state)
+	err := h.metadataUsecase.AddAuthState(r.Context(), metadata.AddAuthStateArgs{
+		State: state,
+	})
+	if err != nil {
+		slog.Error(err.Error(),
+			slog.Int(commonerr.StatusCodeLogKey, http.StatusInternalServerError))
+		return
+	}
 
 	permissionLink := h.googleAuth.GetPermissionLink(googleauthadapter.GetPermissionLinkArgs{
 		State: state,
@@ -39,9 +46,16 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	state := r.URL.Query().Get("state")
-	stateExistence := h.stateRepo.CheckExistence(state)
-	if !stateExistence {
+	stateExistenceResult, err := h.metadataUsecase.ConsumeAuthState(r.Context(), metadata.ConsumeAuthStateArgs{
+		State: r.URL.Query().Get("state"),
+	})
+	if err != nil {
+		slog.Error(err.Error(),
+			slog.Int(commonerr.StatusCodeLogKey, http.StatusInternalServerError))
+		return
+	}
+
+	if !stateExistenceResult.StateExistence {
 		slog.Error("state doesn't exist",
 			slog.Int(commonerr.StatusCodeLogKey, http.StatusBadRequest))
 		return

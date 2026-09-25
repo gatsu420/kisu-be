@@ -13,6 +13,37 @@ import (
 	"golang.org/x/oauth2"
 )
 
+type AddAuthStateArgs struct {
+	State string
+}
+
+func (u *usecaseImpl) AddAuthState(ctx context.Context, args AddAuthStateArgs) error {
+	return u.pgRepo.AddAuthState(ctx, pgrepo.AddAuthStateArgs{
+		State: args.State,
+	})
+}
+
+type ConsumeAuthStateArgs struct {
+	State string
+}
+
+type ConsumeAuthStateResult struct {
+	StateExistence bool
+}
+
+func (u *usecaseImpl) ConsumeAuthState(ctx context.Context, args ConsumeAuthStateArgs) (ConsumeAuthStateResult, error) {
+	result, err := u.pgRepo.ConsumeAuthState(ctx, pgrepo.ConsumeAuthStateArgs{
+		State: args.State,
+	})
+	if err != nil {
+		return ConsumeAuthStateResult{}, err
+	}
+
+	return ConsumeAuthStateResult{
+		StateExistence: result.StateExistence,
+	}, nil
+}
+
 type AddUserArgs struct {
 	Email string
 }
