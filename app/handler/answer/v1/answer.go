@@ -75,16 +75,14 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 }
 
 type AddToolArgs struct {
-	ToolDescription  string              `json:"tool_description"`
-	Project          string              `json:"project"`
-	Dataset          string              `json:"dataset"`
-	TableName        string              `json:"table_name"`
-	Columns          []AddToolColumn     `json:"columns"`
-	Type             commontype.ToolType `json:"type"`
-	Examples         []AddToolExample    `json:"examples"`
-	ParamName        string              `json:"param_name"`
-	ParamType        string              `json:"param_type"`
-	ParamDescription string              `json:"param_description"`
+	ToolDescription string              `json:"tool_description"`
+	Project         string              `json:"project"`
+	Dataset         string              `json:"dataset"`
+	TableName       string              `json:"table_name"`
+	Columns         []AddToolColumn     `json:"columns"`
+	Type            commontype.ToolType `json:"type"`
+	Examples        []AddToolExample    `json:"examples"`
+	ParamName       string              `json:"param_name"`
 }
 
 type AddToolColumn struct {
@@ -143,17 +141,15 @@ func (h *handlerImpl) AddTool(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = h.metadataUsecase.AddTool(r.Context(), metadata.AddToolArgs{
-		UserID:           userID.Value,
-		ToolDescription:  args.ToolDescription,
-		Project:          args.Project,
-		Dataset:          args.Dataset,
-		TableName:        args.TableName,
-		Columns:          columns,
-		Type:             args.Type,
-		Examples:         examples,
-		ParamName:        args.ParamName,
-		ParamType:        args.ParamType,
-		ParamDescription: args.ParamDescription,
+		UserID:          userID.Value,
+		ToolDescription: args.ToolDescription,
+		Project:         args.Project,
+		Dataset:         args.Dataset,
+		TableName:       args.TableName,
+		Columns:         columns,
+		Type:            args.Type,
+		Examples:        examples,
+		ParamName:       args.ParamName,
 	})
 	if err != nil {
 		errMsg = "unable to add tool"
@@ -174,16 +170,14 @@ type GetToolResult struct {
 }
 
 type GetToolRow struct {
-	ToolDescription  string              `json:"tool_description"`
-	Project          string              `json:"project"`
-	Dataset          string              `json:"dataset"`
-	TableName        string              `json:"table_name"`
-	Columns          []GetToolColumn     `json:"columns"`
-	Type             commontype.ToolType `json:"type"`
-	Examples         []GetToolExample    `json:"examples"`
-	ParamName        string              `json:"param_name"`
-	ParamType        string              `json:"param_type"`
-	ParamDescription string              `json:"param_description"`
+	ToolDescription string              `json:"tool_description"`
+	Project         string              `json:"project"`
+	Dataset         string              `json:"dataset"`
+	TableName       string              `json:"table_name"`
+	Columns         []GetToolColumn     `json:"columns"`
+	Type            commontype.ToolType `json:"type"`
+	Examples        []GetToolExample    `json:"examples"`
+	ParamName       string              `json:"param_name"`
 }
 
 type GetToolColumn struct {
@@ -245,16 +239,14 @@ func (h *handlerImpl) GetTool(w http.ResponseWriter, r *http.Request) {
 		}
 
 		resultRows = append(resultRows, GetToolRow{
-			ToolDescription:  r.ToolDescription,
-			Project:          r.Project,
-			Dataset:          r.Dataset,
-			TableName:        r.TableName,
-			Columns:          columns,
-			Type:             r.Type,
-			Examples:         examples,
-			ParamName:        r.ParamName,
-			ParamType:        r.ParamType,
-			ParamDescription: r.ParamDescription,
+			ToolDescription: r.ToolDescription,
+			Project:         r.Project,
+			Dataset:         r.Dataset,
+			TableName:       r.TableName,
+			Columns:         columns,
+			Type:            r.Type,
+			Examples:        examples,
+			ParamName:       r.ParamName,
 		})
 	}
 

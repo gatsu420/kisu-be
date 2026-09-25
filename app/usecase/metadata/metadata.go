@@ -73,17 +73,15 @@ func (u *usecaseImpl) GetUserToken(ctx context.Context, args GetUserTokenArgs) (
 }
 
 type AddToolArgs struct {
-	UserID           string
-	ToolDescription  string
-	Project          string
-	Dataset          string
-	TableName        string
-	Columns          []AddToolColumn
-	Type             commontype.ToolType
-	Examples         []AddToolExample
-	ParamName        string
-	ParamType        string
-	ParamDescription string
+	UserID          string
+	ToolDescription string
+	Project         string
+	Dataset         string
+	TableName       string
+	Columns         []AddToolColumn
+	Type            commontype.ToolType
+	Examples        []AddToolExample
+	ParamName       string
 }
 
 type AddToolColumn struct {
@@ -141,17 +139,15 @@ func (u *usecaseImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 	}
 
 	err := u.pgRepo.AddTool(ctx, pgrepo.AddToolArgs{
-		UserID:           args.UserID,
-		ToolDescription:  args.ToolDescription,
-		Project:          args.Project,
-		Dataset:          args.Dataset,
-		TableName:        args.TableName,
-		Columns:          columns,
-		Type:             args.Type,
-		Examples:         examples,
-		ParamName:        args.ParamName,
-		ParamType:        args.ParamType,
-		ParamDescription: args.ParamDescription,
+		UserID:          args.UserID,
+		ToolDescription: args.ToolDescription,
+		Project:         args.Project,
+		Dataset:         args.Dataset,
+		TableName:       args.TableName,
+		Columns:         columns,
+		Type:            args.Type,
+		Examples:        examples,
+		ParamName:       args.ParamName,
 	})
 	if err != nil {
 		return fmt.Errorf("unable to add tool: %w", err)
@@ -169,16 +165,14 @@ type GetToolResult struct {
 }
 
 type GetToolRow struct {
-	ToolDescription  string
-	Project          string
-	Dataset          string
-	TableName        string
-	Columns          []GetToolColumn
-	Type             commontype.ToolType
-	Examples         []GetToolExample
-	ParamName        string
-	ParamType        string
-	ParamDescription string
+	ToolDescription string
+	Project         string
+	Dataset         string
+	TableName       string
+	Columns         []GetToolColumn
+	Type            commontype.ToolType
+	Examples        []GetToolExample
+	ParamName       string
 }
 
 type GetToolColumn struct {
@@ -220,16 +214,14 @@ func (u *usecaseImpl) GetTool(ctx context.Context, args GetToolArgs) (GetToolRes
 		}
 
 		resultRows = append(resultRows, GetToolRow{
-			ToolDescription:  r.ToolDescription,
-			Project:          r.Project,
-			Dataset:          r.Dataset,
-			TableName:        r.TableName,
-			Columns:          resultColumns,
-			Type:             r.Type,
-			Examples:         resultExamples,
-			ParamName:        r.ParamName,
-			ParamType:        r.ParamType,
-			ParamDescription: r.ParamDescription,
+			ToolDescription: r.ToolDescription,
+			Project:         r.Project,
+			Dataset:         r.Dataset,
+			TableName:       r.TableName,
+			Columns:         resultColumns,
+			Type:            r.Type,
+			Examples:        resultExamples,
+			ParamName:       r.ParamName,
 		})
 	}
 
