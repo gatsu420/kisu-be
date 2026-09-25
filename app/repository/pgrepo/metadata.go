@@ -9,6 +9,46 @@ import (
 	"golang.org/x/oauth2"
 )
 
+type AddAuthStateArgs struct {
+	State string
+}
+
+func (r *repositoryImpl) AddAuthState(ctx context.Context, args AddAuthStateArgs) error {
+	_, err := r.pool.Exec(ctx, `
+		insert into auth_state (state)
+		values ($1)
+	`, args.State)
+	if err != nil {
+		return fmt.Errorf("unable to add auth state: %w", err)
+	}
+
+	return nil
+}
+
+type ConsumeAuthStateArgs struct {
+	State string
+}
+
+type ConsumeAuthStateResult struct {
+	StateExistence bool
+}
+
+func (r *repositoryImpl) ConsumeAuthState(ctx context.Context, args ConsumeAuthStateArgs) (ConsumeAuthStateResult, error) {
+	var state string
+	err := r.pool.QueryRow(ctx, `
+		delete from auth_state
+		where state = $1
+		returning state
+	`, args.State).Scan(&state)
+	if err != nil {
+		return ConsumeAuthStateResult{}, fmt.Errorf("unable to delete from auth_state table: %w", err)
+	}
+
+	return ConsumeAuthStateResult{
+		StateExistence: state != "",
+	}, nil
+}
+
 type AddUserArgs struct {
 	Email string
 }

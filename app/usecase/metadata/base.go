@@ -8,6 +8,8 @@ import (
 )
 
 type Usecase interface {
+	AddAuthState(ctx context.Context, args AddAuthStateArgs) error
+	ConsumeAuthState(ctx context.Context, args ConsumeAuthStateArgs) (ConsumeAuthStateResult, error)
 	AddUser(ctx context.Context, args AddUserArgs) (AddUserResult, error)
 	AddUserToken(ctx context.Context, args AddUserTokenArgs) error
 	GetUserToken(ctx context.Context, args GetUserTokenArgs) (GetUserTokenResult, error)
