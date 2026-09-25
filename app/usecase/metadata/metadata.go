@@ -114,13 +114,22 @@ func (u *usecaseImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 		args.TableName = commoncrypto.GetRandomTableName()
 	}
 
+	var paramExistence bool
 	columns := []pgrepo.AddToolColumn{}
 	for _, c := range args.Columns {
+		if c.Name == args.ParamName {
+			paramExistence = true
+		}
+
 		columns = append(columns, pgrepo.AddToolColumn{
 			Name:        c.Name,
 			Type:        c.Type,
 			Description: c.Description,
 		})
+	}
+
+	if !paramExistence {
+		return errors.New("param doesnt match any column")
 	}
 
 	examples := []pgrepo.AddToolExample{}
