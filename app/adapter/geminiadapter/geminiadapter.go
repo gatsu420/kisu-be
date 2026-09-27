@@ -31,7 +31,7 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 		userID: args.UserID,
 	})
 	if err != nil {
-		return GetContentResult{}, fmt.Errorf("unable to construct function declarations: %w", err)
+		return GetContentResult{}, err
 	}
 
 	paramName, ok := ctx.Value(commonctx.FilterCtxKey).(string)
@@ -73,7 +73,7 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 		Token:         args.Token,
 	})
 	if err != nil {
-		return GetContentResult{}, fmt.Errorf("unable to call tool: %w", err)
+		return GetContentResult{}, err
 	}
 
 	return GetContentResult{
@@ -99,7 +99,7 @@ func (a *adapterImpl) generateFuncCall(ctx context.Context, args generateFuncCal
 
 	resp, err := a.genaiClient.Models.GenerateContent(ctx, "gemini-3.1-flash-lite", contents, config)
 	if err != nil {
-		return nil, fmt.Errorf("unable to use gemini client: %w", err)
+		return nil, err
 	}
 
 	if len(resp.FunctionCalls()) == 0 {
@@ -183,7 +183,7 @@ func (a *adapterImpl) getFuncDeclaration(ctx context.Context, args getFuncDeclar
 		UserID: args.userID,
 	})
 	if err != nil {
-		return getFuncDeclarationResult{}, fmt.Errorf("unable to get tools: %w", err)
+		return getFuncDeclarationResult{}, err
 	}
 
 	funcDeclarations := []*genai.FunctionDeclaration{}

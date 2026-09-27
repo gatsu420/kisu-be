@@ -3,6 +3,7 @@ package bqrepo
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -40,7 +41,7 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 
 	tableLocationParts := strings.Split(args.TableLocation, ".")
 	if len(tableLocationParts) != 3 {
-		return CallToolResult{}, fmt.Errorf("table location must be in the form of project.dataset.table")
+		return CallToolResult{}, errors.New("table location must be in the form of project.dataset.table")
 	}
 
 	defer bqClient.Close()
@@ -76,15 +77,6 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 		return CallToolResult{}, fmt.Errorf("unable to select hashed filter view: %w", err)
 	}
 
-	// err = dropHashedFilterView(ctx, dropHashedFilterViewArgs{
-	// 	bqClient:  bqClient,
-	// 	dataset:   tableLocationParts[1],
-	// 	tableName: tableLocationParts[2],
-	// })
-	// if err != nil {
-	// 	return CallToolResult{}, fmt.Errorf("unable to drop hashed filter view: %w", err)
-	// }
-
 	return CallToolResult{
 		Rows: selectResult.rows,
 	}, nil
@@ -103,12 +95,12 @@ type createHashedFilterViewArgs struct {
 func createHashedFilterView(ctx context.Context, args createHashedFilterViewArgs) error {
 	filter, ok := ctx.Value(commonctx.FilterCtxKey).(string)
 	if !ok {
-		return fmt.Errorf("unable to get filter from context")
+		return errors.New("unable to get filter from context")
 	}
 
 	salt, ok := ctx.Value(commonctx.SaltCtxKey).(string)
 	if !ok {
-		return fmt.Errorf("unable to get salt from context")
+		return errors.New("unable to get salt from context")
 	}
 
 	var query string
