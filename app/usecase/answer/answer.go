@@ -3,7 +3,7 @@ package answer
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"strings"
 
 	"github.com/gatsu420/kisu-be/app/adapter/geminiadapter"
@@ -31,7 +31,7 @@ func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAns
 
 	token, ok := ctx.Value(commonctx.TokenCtxKey).(*oauth2.Token)
 	if !ok {
-		return GetAnswerResult{}, fmt.Errorf("token is not found in context")
+		return GetAnswerResult{}, errors.New("unable to get token from context")
 	}
 
 	content, err := u.geminiAdapter.GetContent(ctx, geminiadapter.GetContentArgs{
@@ -41,7 +41,7 @@ func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAns
 		UserID: args.UserID,
 	})
 	if err != nil {
-		return GetAnswerResult{}, fmt.Errorf("unable to get content from gemini adapter: %w", err)
+		return GetAnswerResult{}, err
 	}
 
 	return GetAnswerResult{
@@ -56,7 +56,7 @@ func (u *usecaseImpl) hashParam(ctx context.Context, param string) (string, erro
 	})
 	salt, ok := ctx.Value(commonctx.SaltCtxKey).(string)
 	if !ok {
-		return "", fmt.Errorf("unable to get salt from context")
+		return "", errors.New("unable to get salt from context")
 	}
 
 	hashedParts := commoncrypto.HashStringSlice(paramParts, salt)

@@ -55,7 +55,7 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 		statusCode = http.StatusInternalServerError
 		slog.Error(errMsg,
 			slog.Int(commonerr.StatusCodeLogKey, statusCode),
-			slog.Any(commonerr.ErrLogKey, err))
+			slog.String(commonerr.ErrLogKey, err.Error()))
 		http.Error(w, errMsg, statusCode)
 		return
 	}
@@ -69,7 +69,7 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 		statusCode = http.StatusInternalServerError
 		slog.Error(errMsg,
 			slog.Int(commonerr.StatusCodeLogKey, statusCode),
-			slog.Any(commonerr.ErrLogKey, err))
+			slog.String(commonerr.ErrLogKey, err.Error()))
 		http.Error(w, errMsg, statusCode)
 	}
 }
@@ -109,7 +109,7 @@ func (h *handlerImpl) AddTool(w http.ResponseWriter, r *http.Request) {
 		statusCode = http.StatusBadRequest
 		slog.Error(errMsg,
 			slog.Int(commonerr.StatusCodeLogKey, statusCode),
-			slog.Any(commonerr.ErrLogKey, err))
+			slog.String(commonerr.ErrLogKey, err.Error()))
 		http.Error(w, errMsg, statusCode)
 		return
 	}
@@ -156,7 +156,7 @@ func (h *handlerImpl) AddTool(w http.ResponseWriter, r *http.Request) {
 		statusCode = http.StatusInternalServerError
 		slog.Error(errMsg,
 			slog.Int(commonerr.StatusCodeLogKey, statusCode),
-			slog.Any(commonerr.ErrLogKey, err))
+			slog.String(commonerr.ErrLogKey, err.Error()))
 		http.Error(w, errMsg, statusCode)
 		return
 	}
@@ -214,7 +214,7 @@ func (h *handlerImpl) GetTool(w http.ResponseWriter, r *http.Request) {
 		statusCode = http.StatusInternalServerError
 		slog.Error(errMsg,
 			slog.Int(commonerr.StatusCodeLogKey, statusCode),
-			slog.Any(commonerr.ErrLogKey, err))
+			slog.String(commonerr.ErrLogKey, err.Error()))
 		http.Error(w, errMsg, statusCode)
 		return
 	}
@@ -256,7 +256,7 @@ func (h *handlerImpl) GetTool(w http.ResponseWriter, r *http.Request) {
 		statusCode = http.StatusInternalServerError
 		slog.Error(errMsg,
 			slog.Int(commonerr.StatusCodeLogKey, statusCode),
-			slog.Any(commonerr.ErrLogKey, err))
+			slog.String(commonerr.ErrLogKey, err.Error()))
 		http.Error(w, errMsg, statusCode)
 	}
 }

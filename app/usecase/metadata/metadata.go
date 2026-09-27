@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/gatsu420/kisu-be/app/repository/bqrepo"
 	"github.com/gatsu420/kisu-be/app/repository/pgrepo"
@@ -169,7 +168,7 @@ func (u *usecaseImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 		})
 	}
 
-	err := u.pgRepo.AddTool(ctx, pgrepo.AddToolArgs{
+	return u.pgRepo.AddTool(ctx, pgrepo.AddToolArgs{
 		UserID:          args.UserID,
 		ToolDescription: args.ToolDescription,
 		Project:         args.Project,
@@ -180,11 +179,6 @@ func (u *usecaseImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 		Examples:        examples,
 		ParamName:       args.ParamName,
 	})
-	if err != nil {
-		return fmt.Errorf("unable to add tool: %w", err)
-	}
-
-	return nil
 }
 
 type GetToolArgs struct {
@@ -222,7 +216,7 @@ func (u *usecaseImpl) GetTool(ctx context.Context, args GetToolArgs) (GetToolRes
 		UserID: args.UserID,
 	})
 	if err != nil {
-		return GetToolResult{}, fmt.Errorf("unable to get tool: %w", err)
+		return GetToolResult{}, err
 	}
 
 	resultRows := []GetToolRow{}

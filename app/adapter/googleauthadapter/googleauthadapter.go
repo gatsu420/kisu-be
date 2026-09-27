@@ -2,6 +2,7 @@ package googleauthadapter
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/gatsu420/kisu-be/common/commonctx"
@@ -42,7 +43,7 @@ func (a *adapterImpl) Exchange(ctx context.Context, args ExchangeArgs) (Exchange
 
 	return ExchangeResult{
 		Token: token,
-	}, err
+	}, fmt.Errorf("unable to exchange auth code to token: %w", err)
 }
 
 type ClientArgs struct {
