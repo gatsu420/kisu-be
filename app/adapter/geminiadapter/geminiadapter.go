@@ -36,7 +36,7 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 
 	paramName, ok := ctx.Value(commonctx.FilterCtxKey).(string)
 	if !ok {
-		return GetContentResult{}, errors.New("there is no param name inside context")
+		return GetContentResult{}, errors.New("unable to get filter from context")
 	}
 
 	funcCall, err := a.generateFuncCall(ctx, generateFuncCallArgs{

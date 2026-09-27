@@ -31,7 +31,7 @@ func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAns
 
 	token, ok := ctx.Value(commonctx.TokenCtxKey).(*oauth2.Token)
 	if !ok {
-		return GetAnswerResult{}, errors.New("token is not found in context")
+		return GetAnswerResult{}, errors.New("unable to get token from context")
 	}
 
 	content, err := u.geminiAdapter.GetContent(ctx, geminiadapter.GetContentArgs{
