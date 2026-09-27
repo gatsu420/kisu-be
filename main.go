@@ -32,7 +32,7 @@ func main() {
 	if err != nil {
 		slog.Error(err.Error(),
 			slog.Int(commonerr.StatusCodeLogKey, http.StatusInternalServerError),
-			slog.Any(commonerr.ErrLogKey, err))
+			slog.String(commonerr.ErrLogKey, err.Error()))
 		os.Exit(1)
 	}
 }

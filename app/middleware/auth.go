@@ -22,7 +22,7 @@ func RefreshToken(metadataUsecase metadata.Usecase, googleAuth googleauthadapter
 				statusCode = http.StatusUnauthorized
 				slog.Error("unable to find user_id cookie",
 					slog.Int(commonerr.StatusCodeLogKey, statusCode),
-					slog.Any(commonerr.ErrLogKey, err))
+					slog.String(commonerr.ErrLogKey, err.Error()))
 				http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 				return
 			}
@@ -35,7 +35,7 @@ func RefreshToken(metadataUsecase metadata.Usecase, googleAuth googleauthadapter
 				statusCode = http.StatusInternalServerError
 				slog.Error("unable to get user token",
 					slog.Int(commonerr.StatusCodeLogKey, statusCode),
-					slog.Any(commonerr.ErrLogKey, err))
+					slog.String(commonerr.ErrLogKey, err.Error()))
 				http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 				return
 			}
@@ -48,7 +48,7 @@ func RefreshToken(metadataUsecase metadata.Usecase, googleAuth googleauthadapter
 				statusCode = http.StatusInternalServerError
 				slog.Error("unable to refresh token",
 					slog.Int(commonerr.StatusCodeLogKey, statusCode),
-					slog.Any(commonerr.ErrLogKey, err))
+					slog.String(commonerr.ErrLogKey, err.Error()))
 				http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 				return
 			}
@@ -62,7 +62,7 @@ func RefreshToken(metadataUsecase metadata.Usecase, googleAuth googleauthadapter
 				statusCode = http.StatusInternalServerError
 				slog.Error("unable to add user token",
 					slog.Int(commonerr.StatusCodeLogKey, statusCode),
-					slog.Any(commonerr.ErrLogKey, err))
+					slog.String(commonerr.ErrLogKey, err.Error()))
 				http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 				return
 			}

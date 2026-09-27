@@ -123,16 +123,23 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 		Code: r.URL.Query().Get("code"),
 	})
 	if err != nil {
-		slog.Error("unable to exchange code from auth server",
-			slog.Int(commonerr.StatusCodeLogKey, http.StatusInternalServerError))
+		errMsg = "unable to exchange code from auth server"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
 		return
 	}
 
 	email, err := h.getEmail(r.Context(), token.Token)
 	if err != nil {
 		errMsg = "unable to get email from google auth"
-		slog.Error(errMsg, slog.Int(commonerr.StatusCodeLogKey, http.StatusInternalServerError),
-			slog.Any(commonerr.ErrLogKey, err))
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
 		return
 	}
 
@@ -140,9 +147,12 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 		Email: email,
 	})
 	if err != nil {
-		slog.Error("unable to add user",
-			slog.Int(commonerr.StatusCodeLogKey, http.StatusInternalServerError),
-			slog.Any(commonerr.ErrLogKey, err))
+		errMsg = "unable to add user"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
 		return
 	}
 
@@ -151,9 +161,12 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 		Token:  token.Token,
 	})
 	if err != nil {
-		slog.Error("unable to add user token",
-			slog.Int(commonerr.StatusCodeLogKey, http.StatusInternalServerError),
-			slog.Any(commonerr.ErrLogKey, err))
+		errMsg = "unable to add user token"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
 		return
 	}
 
