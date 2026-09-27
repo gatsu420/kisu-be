@@ -40,10 +40,13 @@ func (a *adapterImpl) Exchange(ctx context.Context, args ExchangeArgs) (Exchange
 	defer cancel()
 
 	token, err := a.oauthConfig.Exchange(ctx, args.Code)
+	if err != nil {
+		return ExchangeResult{}, fmt.Errorf("unable to exchange auth code to token: %w", err)
+	}
 
 	return ExchangeResult{
 		Token: token,
-	}, fmt.Errorf("unable to exchange auth code to token: %w", err)
+	}, nil
 }
 
 type ClientArgs struct {
