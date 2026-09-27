@@ -106,7 +106,7 @@ func createServer(ctx context.Context, config commonconfig.Config) (*http.Server
 	geminiAdapter := geminiadapter.NewAdapter(genaiClient, metadataUsecase)
 	answerUsecase := answer.NewUsecase(geminiAdapter)
 
-	authHandler := authhandlerv1.NewHandler(googleAuth, metadataUsecase)
+	authHandler := authhandlerv1.NewHandler(config.HashSecret, googleAuth, metadataUsecase)
 	answerHandler := answerhandlerv1.NewHandler(metadataUsecase, answerUsecase)
 
 	mux := http.NewServeMux()

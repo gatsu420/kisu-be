@@ -20,18 +20,6 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
--- Name: auth_state; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.auth_state (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    state text NOT NULL,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
-);
-
-
---
 -- Name: example; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -98,14 +86,6 @@ CREATE TABLE public.user_token (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
-
-
---
--- Name: auth_state auth_state_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.auth_state
-    ADD CONSTRAINT auth_state_pkey PRIMARY KEY (id);
 
 
 --
@@ -206,4 +186,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260920130911'),
     ('20260921044553'),
     ('20260925121455'),
-    ('20260925134308');
+    ('20260925134308'),
+    ('20260926044424');

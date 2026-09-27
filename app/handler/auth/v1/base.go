@@ -13,12 +13,14 @@ type Handler interface {
 }
 
 type handlerImpl struct {
+	hashSecret      string
 	googleAuth      googleauthadapter.Adapter
 	metadataUsecase metadata.Usecase
 }
 
-func NewHandler(googleAuth googleauthadapter.Adapter, metadataUsecase metadata.Usecase) Handler {
+func NewHandler(hashSecret string, googleAuth googleauthadapter.Adapter, metadataUsecase metadata.Usecase) Handler {
 	return &handlerImpl{
+		hashSecret:      hashSecret,
 		googleAuth:      googleAuth,
 		metadataUsecase: metadataUsecase,
 	}

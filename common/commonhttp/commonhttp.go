@@ -2,7 +2,10 @@ package commonhttp
 
 import "net/http"
 
-const UserIDCookieName = "user_id"
+const (
+	AuthStateCookieName = "auth_state"
+	UserIDCookieName    = "user_id"
+)
 
 const (
 	CookiePath     = "/"
