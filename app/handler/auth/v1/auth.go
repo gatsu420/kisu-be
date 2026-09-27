@@ -107,7 +107,11 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !stateVerification.isVerified {
-		errMsg = "auth state is not verified"
+		if stateVerification.failedVerificationMsg != "" {
+			errMsg = stateVerification.failedVerificationMsg
+		} else {
+			errMsg = "auth state is not verified"
+		}
 		statusCode = http.StatusUnauthorized
 		slog.Error(errMsg,
 			slog.Int(commonerr.StatusCodeLogKey, statusCode))
