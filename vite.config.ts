@@ -11,7 +11,9 @@ export default defineConfig({
           if (req.url?.startsWith('/auth/v1/callback')) {
             ;(async () => {
               try {
-                const backendRes = await fetch(`http://localhost:8080${req.url}`)
+                const backendRes = await fetch(`http://localhost:8080${req.url}`, {
+                  headers: { cookie: req.headers.cookie ?? '' },
+                })
                 const setCookies = backendRes.headers.getSetCookie()
                 if (setCookies && setCookies.length > 0) {
                   res.setHeader('Set-Cookie', setCookies)
