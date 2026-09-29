@@ -226,7 +226,7 @@ type ValidateQueryResult struct {
 	IsValid bool
 }
 
-func (r *repositoryImpl) ValidateQuery(ctx context.Context, args ValidateQueryArgs) (ValidateQueryResult, error) {
+func (r *repositoryImpl) ValidateToolQuery(ctx context.Context, args ValidateQueryArgs) (ValidateQueryResult, error) {
 	googleAuthClient := r.googleAuth.Client(ctx,
 		googleauthadapter.ClientArgs{
 			Token: args.Token,

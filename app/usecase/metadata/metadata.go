@@ -300,13 +300,13 @@ type ValidateQueryResult struct {
 	IsValid bool
 }
 
-func (u *usecaseImpl) ValidateQuery(ctx context.Context, args ValidateQueryArgs) (ValidateQueryResult, error) {
+func (u *usecaseImpl) ValidateToolQuery(ctx context.Context, args ValidateQueryArgs) (ValidateQueryResult, error) {
 	token, ok := ctx.Value(commonctx.TokenCtxKey).(*oauth2.Token)
 	if !ok {
 		return ValidateQueryResult{}, errors.New("unable to get token from context")
 	}
 
-	result, err := u.bqRepo.ValidateQuery(ctx, bqrepo.ValidateQueryArgs{
+	result, err := u.bqRepo.ValidateToolQuery(ctx, bqrepo.ValidateQueryArgs{
 		Query: args.Query,
 		Token: token,
 	})

@@ -269,7 +269,7 @@ func (h *handlerImpl) ValidateToolQuery(w http.ResponseWriter, r *http.Request) 
 	var errMsg string
 	var statusCode int
 
-	result, err := h.metadataUsecase.ValidateQuery(r.Context(), metadata.ValidateQueryArgs{
+	result, err := h.metadataUsecase.ValidateToolQuery(r.Context(), metadata.ValidateQueryArgs{
 		Query: r.URL.Query().Get("query"),
 	})
 	if err != nil {
