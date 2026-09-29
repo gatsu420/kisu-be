@@ -27,7 +27,7 @@ type GetContentResult struct {
 }
 
 func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetContentResult, error) {
-	funcDeclarations, err := a.declareTool(ctx, declareToolArgs{
+	toolDeclarations, err := a.declareTool(ctx, declareToolArgs{
 		userID: args.UserID,
 	})
 	if err != nil {
@@ -35,9 +35,8 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 	}
 
 	geminiTools := []*genai.Tool{
-		{FunctionDeclarations: funcDeclarations.declarations},
+		{FunctionDeclarations: toolDeclarations.declarations},
 	}
-
 	geminiTemp := float32(0.5)
 	geminiConfig := &genai.GenerateContentConfig{
 		ThinkingConfig: &genai.ThinkingConfig{
@@ -103,7 +102,7 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 		stringifiedToolParam)
 
 	toolResult, err := a.metadataUsecase.CallTool(ctx, metadata.CallToolArgs{
-		Type:          funcDeclarations.toolTypes[tool.Name],
+		Type:          toolDeclarations.toolTypes[tool.Name],
 		TableLocation: tool.Name,
 		BuilderQuery:  stringifiedToolBuilderQuery,
 		Query:         stringifiedToolQuery,
@@ -148,60 +147,68 @@ func (a *adapterImpl) declareTool(ctx context.Context, args declareToolArgs) (de
 			return declareToolResult{}, errors.New("invalid tool type")
 		}
 
-		columns := []string{}
+		columnItems := []string{}
+		columns := `
+		The CTE has these columns:
+		`
 		for _, c := range r.Columns {
-			columns = append(columns, fmt.Sprintf("- %v (%v): %v",
-				c.Name, c.Type, c.Description))
+			columnItems = append(columnItems,
+				fmt.Sprintf(`
+				-	%s (%s)
+					%s
+				`,
+					c.Name, c.Type, c.Description))
 		}
+		columns += strings.Join(columnItems, "\n")
 
 		var builderQuery string
 		if r.Type == commontype.QueryToolType {
 			builderQuery = fmt.Sprintf(`
-			That view is build using this builder query:
-			%v
+			The CTE is built using this builder query:
+			%s
 			`, r.Examples[0].Query)
 		}
 
-		examples := []string{}
-		for _, e := range r.Examples {
-			if r.Type == commontype.TableToolType {
-				queryWithHashedFilter := strings.ReplaceAll(e.Query,
-					r.TableName,
-					r.TableName+"_hashed_filter")
-				examples = append(examples, fmt.Sprintf("- %s\n\t%s",
-					e.Description, queryWithHashedFilter))
-			} else {
-				examples = append(examples, fmt.Sprintf("- %s\n\t%s",
-					e.Description, e.Query))
-			}
-		}
-
+		exampleItems := []string{}
+		examples := `
+		Example query using the CTE:
+		`
 		tableLocation := fmt.Sprintf("%s.%s.%s",
 			r.Project,
 			r.Dataset,
 			r.TableName)
-		toolTypes[tableLocation] = r.Type
+		if r.Type == commontype.TableToolType {
+			for _, e := range r.Examples {
+				exampleItems = append(exampleItems,
+					fmt.Sprintf(`
+					-	%s
+						%s
+					`,
+						e.Description,
+						strings.ReplaceAll(e.Query,
+							"`"+tableLocation+"`",
+							"hashed_filter")))
+			}
+
+			examples += strings.Join(exampleItems, "\n")
+		}
 
 		declarations = append(declarations, &genai.FunctionDeclaration{
 			Name: tableLocation,
 			Description: fmt.Sprintf(`
-				Run select-only query from %s.%s.%s_hashed_filter to get
+				Run select-only query from hashed_filter CTE to get
 				information about: %s.
 
 				%s
 
-				The view has these columns:
 				%s
 
-				Sample query using the view:
 				%s
-				`, r.Project,
-				r.Dataset,
-				r.TableName,
+				`,
 				r.ToolDescription,
+				columns,
 				builderQuery,
-				strings.Join(columns, "\n"),
-				strings.Join(examples, "\n")),
+				examples),
 
 			Parameters: &genai.Schema{
 				Type: genai.TypeObject,
@@ -216,7 +223,7 @@ func (a *adapterImpl) declareTool(ctx context.Context, args declareToolArgs) (de
 					},
 					"builder_query": {
 						Type:        genai.TypeString,
-						Description: "Query that is used to build *_hashed_filter view",
+						Description: "Query that is used to build hashed_filter CTE",
 					},
 				},
 				Required: []string{"hashed_" + r.ParamName, "query", "builder_query"},
@@ -228,6 +235,7 @@ func (a *adapterImpl) declareTool(ctx context.Context, args declareToolArgs) (de
 				Description: "List of information returned by query, 1 item represents 1 row",
 			},
 		})
+		toolTypes[tableLocation] = r.Type
 	}
 
 	return declareToolResult{
