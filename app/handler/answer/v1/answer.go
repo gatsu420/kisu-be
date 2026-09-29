@@ -259,7 +259,7 @@ func (h *handlerImpl) GetTool(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type ValidateQueryResult struct {
+type ValidateToolQueryResult struct {
 	IsValid bool `json:"is_valid"`
 }
 
@@ -269,7 +269,7 @@ func (h *handlerImpl) ValidateToolQuery(w http.ResponseWriter, r *http.Request) 
 	var errMsg string
 	var statusCode int
 
-	result, err := h.metadataUsecase.ValidateToolQuery(r.Context(), metadata.ValidateQueryArgs{
+	result, err := h.metadataUsecase.ValidateToolQuery(r.Context(), metadata.ValidateToolQueryArgs{
 		Query: r.URL.Query().Get("query"),
 	})
 	if err != nil {
@@ -282,7 +282,7 @@ func (h *handlerImpl) ValidateToolQuery(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	err = json.NewEncoder(w).Encode(ValidateQueryResult{
+	err = json.NewEncoder(w).Encode(ValidateToolQueryResult{
 		IsValid: result.IsValid,
 	})
 	if err != nil {

@@ -292,29 +292,29 @@ func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallTool
 	}, nil
 }
 
-type ValidateQueryArgs struct {
+type ValidateToolQueryArgs struct {
 	Query string
 }
 
-type ValidateQueryResult struct {
+type ValidateToolQueryResult struct {
 	IsValid bool
 }
 
-func (u *usecaseImpl) ValidateToolQuery(ctx context.Context, args ValidateQueryArgs) (ValidateQueryResult, error) {
+func (u *usecaseImpl) ValidateToolQuery(ctx context.Context, args ValidateToolQueryArgs) (ValidateToolQueryResult, error) {
 	token, ok := ctx.Value(commonctx.TokenCtxKey).(*oauth2.Token)
 	if !ok {
-		return ValidateQueryResult{}, errors.New("unable to get token from context")
+		return ValidateToolQueryResult{}, errors.New("unable to get token from context")
 	}
 
-	result, err := u.bqRepo.ValidateToolQuery(ctx, bqrepo.ValidateQueryArgs{
+	result, err := u.bqRepo.ValidateToolQuery(ctx, bqrepo.ValidateToolQueryArgs{
 		Query: args.Query,
 		Token: token,
 	})
 	if err != nil {
-		return ValidateQueryResult{}, err
+		return ValidateToolQueryResult{}, err
 	}
 
-	return ValidateQueryResult{
+	return ValidateToolQueryResult{
 		IsValid: result.IsValid,
 	}, nil
 }

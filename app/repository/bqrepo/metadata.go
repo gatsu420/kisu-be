@@ -217,16 +217,16 @@ func dropHashedFilterView(ctx context.Context, args dropHashedFilterViewArgs) er
 
 }
 
-type ValidateQueryArgs struct {
+type ValidateToolQueryArgs struct {
 	Query string
 	Token *oauth2.Token
 }
 
-type ValidateQueryResult struct {
+type ValidateToolQueryResult struct {
 	IsValid bool
 }
 
-func (r *repositoryImpl) ValidateToolQuery(ctx context.Context, args ValidateQueryArgs) (ValidateQueryResult, error) {
+func (r *repositoryImpl) ValidateToolQuery(ctx context.Context, args ValidateToolQueryArgs) (ValidateToolQueryResult, error) {
 	googleAuthClient := r.googleAuth.Client(ctx,
 		googleauthadapter.ClientArgs{
 			Token: args.Token,
@@ -236,7 +236,7 @@ func (r *repositoryImpl) ValidateToolQuery(ctx context.Context, args ValidateQue
 		r.projectID,
 		option.WithHTTPClient(googleAuthClient.Client))
 	if err != nil {
-		return ValidateQueryResult{}, fmt.Errorf("unable to create bigquery client: %w", err)
+		return ValidateToolQueryResult{}, fmt.Errorf("unable to create bigquery client: %w", err)
 	}
 	defer bqClient.Close()
 
@@ -244,14 +244,14 @@ func (r *repositoryImpl) ValidateToolQuery(ctx context.Context, args ValidateQue
 	query.DryRun = true
 	job, err := query.Run(ctx)
 	if err != nil {
-		return ValidateQueryResult{}, fmt.Errorf("unable to run job for validating query: %w", err)
+		return ValidateToolQueryResult{}, fmt.Errorf("unable to run job for validating query: %w", err)
 	}
 
 	if job.LastStatus().Err() != nil {
-		return ValidateQueryResult{}, fmt.Errorf("job for validating query has failed: %w", err)
+		return ValidateToolQueryResult{}, fmt.Errorf("job for validating query has failed: %w", err)
 	}
 
-	return ValidateQueryResult{
+	return ValidateToolQueryResult{
 		IsValid: true,
 	}, nil
 }
