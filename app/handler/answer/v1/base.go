@@ -10,6 +10,7 @@ import (
 type Handler interface {
 	AddTool(w http.ResponseWriter, r *http.Request)
 	GetTool(w http.ResponseWriter, r *http.Request)
+	ValidateToolQuery(w http.ResponseWriter, r *http.Request)
 	GetAnswer(w http.ResponseWriter, r *http.Request)
 }
 

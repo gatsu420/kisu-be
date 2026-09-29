@@ -43,11 +43,9 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 		commonctx.SaltCtxKey,
 		uuid.New().String())
 
-	prompt := r.URL.Query().Get("prompt")
-	param := r.URL.Query().Get("param")
 	promptAnswer, err := h.answerUsecase.GetAnswer(ctx, answer.GetAnswerArgs{
-		Prompt: prompt,
-		Param:  param,
+		Prompt: r.URL.Query().Get("prompt"),
+		Param:  r.URL.Query().Get("param"),
 		UserID: userID.Value,
 	})
 	if err != nil {
@@ -251,6 +249,42 @@ func (h *handlerImpl) GetTool(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = json.NewEncoder(w).Encode(resultRows)
+	if err != nil {
+		errMsg = "unable to write response"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
+	}
+}
+
+type ValidateQueryResult struct {
+	IsValid bool `json:"is_valid"`
+}
+
+func (h *handlerImpl) ValidateToolQuery(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	var errMsg string
+	var statusCode int
+
+	result, err := h.metadataUsecase.ValidateQuery(r.Context(), metadata.ValidateQueryArgs{
+		Query: r.URL.Query().Get("query"),
+	})
+	if err != nil {
+		errMsg = "unable to validate tool query"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(ValidateQueryResult{
+		IsValid: result.IsValid,
+	})
 	if err != nil {
 		errMsg = "unable to write response"
 		statusCode = http.StatusInternalServerError
