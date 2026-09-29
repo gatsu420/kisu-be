@@ -34,9 +34,6 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 		return GetContentResult{}, fmt.Errorf("unable to construct function declarations: %w", err)
 	}
 
-	marshaledFuncDeclarations, _ := json.MarshalIndent(funcDeclarations.declarations, "", " ")
-	fmt.Println(string(marshaledFuncDeclarations))
-
 	geminiTools := []*genai.Tool{
 		{FunctionDeclarations: funcDeclarations.declarations},
 	}
@@ -110,14 +107,13 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 	if err != nil {
 		return GetContentResult{}, fmt.Errorf("unable to marshal tool: %w", err)
 	}
-	stringifiedFuncCalls := string(marshaledFuncCall)
-	fmt.Println(string(stringifiedFuncCalls))
 
 	funcCallArgs, err := json.Marshal(funcCall.Args)
 	if err != nil {
 		return GetContentResult{}, fmt.Errorf("unable to marshal tool args: %w", err)
 	}
 
+	stringifiedFuncCalls := string(marshaledFuncCall)
 	toolResult, err := a.metadataUsecase.CallTool(ctx, metadata.CallToolArgs{
 		Type:          funcDeclarations.toolTypes[funcCall.Name],
 		TableLocation: funcCall.Name,
