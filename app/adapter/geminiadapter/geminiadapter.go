@@ -193,10 +193,11 @@ func (a *adapterImpl) declareTool(ctx context.Context, args declareToolArgs) (de
 			examples += strings.Join(exampleItems, "\n")
 		}
 
+		hashedParamName := "hashed_" + r.ParamName
 		declarations = append(declarations, &genai.FunctionDeclaration{
 			Name: tableLocation,
 			Description: fmt.Sprintf(`
-				Run select-only query from hashed_filter CTE to get
+				Run SELECT-only query from hashed_filter CTE to get
 				information about: %s.
 
 				%s
@@ -204,22 +205,28 @@ func (a *adapterImpl) declareTool(ctx context.Context, args declareToolArgs) (de
 				%s
 
 				%s
+
+				The query should be without WHERE.
+				Do not SELECT %s.
+				Whatever the columns selected, also add %s.
 				`,
 				r.ToolDescription,
 				columns,
 				builderQuery,
-				examples),
+				examples,
+				hashedParamName,
+				r.ParamName),
 
 			Parameters: &genai.Schema{
 				Type: genai.TypeObject,
 				Properties: map[string]*genai.Schema{
-					"hashed_" + r.ParamName: {
+					hashedParamName: {
 						Type:        genai.TypeString,
 						Description: "Hashed param delimited by comma. Each element is surrounded by quote.",
 					},
 					"query": {
 						Type:        genai.TypeString,
-						Description: "Query to get wanted information without WHERE",
+						Description: "Query to get wanted information",
 					},
 					"builder_query": {
 						Type:        genai.TypeString,
