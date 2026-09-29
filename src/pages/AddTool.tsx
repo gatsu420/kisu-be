@@ -205,12 +205,7 @@ export default function AddTool() {
         navigate("/login");
         return;
       }
-      setQueryStatus(
-        index,
-        text,
-        "unverified",
-        "Failed to verify",
-      );
+      setQueryStatus(index, text, "unverified", "Failed to verify");
     }
   };
 
@@ -227,7 +222,7 @@ export default function AddTool() {
       (status === "checking"
         ? "Checking..."
         : status === "valid"
-          ? "Verified"
+          ? "Query is verified"
           : status === "invalid"
             ? "Invalid query"
             : null);
