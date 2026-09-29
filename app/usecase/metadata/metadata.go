@@ -259,9 +259,8 @@ func (u *usecaseImpl) GetTool(ctx context.Context, args GetToolArgs) (GetToolRes
 type CallToolArgs struct {
 	Type          commontype.ToolType
 	TableLocation string
-	Query         string
 	BuilderQuery  string
-	RawToolArgs   []byte
+	Query         string
 	Token         *oauth2.Token
 }
 
@@ -273,9 +272,8 @@ func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallTool
 	result, err := u.bqRepo.CallTool(ctx, bqrepo.CallToolArgs{
 		Type:          args.Type,
 		TableLocation: args.TableLocation,
-		Query:         args.Query,
 		BuilderQuery:  args.BuilderQuery,
-		RawToolArgs:   args.RawToolArgs,
+		Query:         args.Query,
 		Token:         args.Token,
 	})
 	if err != nil {

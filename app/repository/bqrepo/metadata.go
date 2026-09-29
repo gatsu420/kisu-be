@@ -2,7 +2,6 @@ package bqrepo
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -19,9 +18,8 @@ import (
 type CallToolArgs struct {
 	Type          commontype.ToolType
 	TableLocation string
-	Query         string
 	BuilderQuery  string
-	RawToolArgs   []byte
+	Query         string
 	Token         *oauth2.Token
 }
 
@@ -45,176 +43,114 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 		return CallToolResult{}, errors.New("table location must be in the form of project.dataset.table")
 	}
 
-	defer func(ctx context.Context, args dropHashedFilterViewArgs) {
-		dropErr := dropHashedFilterView(ctx, args)
-		if dropErr != nil && err == nil {
-			err = dropErr
-		}
-	}(ctx, dropHashedFilterViewArgs{
-		bqClient:  bqClient,
-		dataset:   tableLocationParts[1],
-		tableName: tableLocationParts[2],
-	})
-
-	err = createHashedFilterView(ctx, createHashedFilterViewArgs{
+	result, err := runQuery(ctx, runQueryArgs{
 		bqClient:     bqClient,
 		toolType:     args.Type,
 		project:      tableLocationParts[0],
 		dataset:      tableLocationParts[1],
 		tableName:    tableLocationParts[2],
-		query:        args.Query,
 		builderQuery: args.BuilderQuery,
+		query:        args.Query,
 	})
 	if err != nil {
-		return CallToolResult{}, fmt.Errorf("unable to create hashed filter view: %w", err)
-	}
-
-	selectResult, err := selectHashedFilterView(ctx, selectHashedFilterViewArgs{
-		bqClient:    bqClient,
-		RawToolArgs: args.RawToolArgs,
-	})
-	if err != nil {
-		return CallToolResult{}, fmt.Errorf("unable to select hashed filter view: %w", err)
+		return CallToolResult{}, fmt.Errorf("unable to select CTE: %w", err)
 	}
 
 	return CallToolResult{
-		Rows: selectResult.rows,
+		Rows: result.rows,
 	}, nil
 }
 
-type createHashedFilterViewArgs struct {
+type runQueryArgs struct {
 	bqClient     *bigquery.Client
 	toolType     commontype.ToolType
 	project      string
 	dataset      string
 	tableName    string
-	query        string
 	builderQuery string
+	query        string
 }
 
-func createHashedFilterView(ctx context.Context, args createHashedFilterViewArgs) error {
+type runQueryResult struct {
+	rows []map[string]bigquery.Value
+}
+
+func runQuery(ctx context.Context, args runQueryArgs) (runQueryResult, error) {
 	filter, ok := ctx.Value(commonctx.FilterCtxKey).(string)
 	if !ok {
-		return errors.New("unable to get filter from context")
+		return runQueryResult{}, errors.New("unable to get filter from context")
 	}
 
 	salt, ok := ctx.Value(commonctx.SaltCtxKey).(string)
 	if !ok {
-		return errors.New("unable to get salt from context")
+		return runQueryResult{}, errors.New("unable to get salt from context")
 	}
 
-	var query string
+	var queryPrefix string
 	switch args.toolType {
 	case commontype.TableToolType:
-		query = fmt.Sprintf(`
+		queryPrefix = fmt.Sprintf(`
+		with hashed_filter as (
 			select
 				*,
 				to_base64(sha256(concat(%s, "%s"))) hashed_%s
 			from %s
-			`, filter,
-			salt,
-			filter,
-			fmt.Sprintf("%s.%s.%s",
+		)
+		`,
+			filter, salt, filter, fmt.Sprintf("%s.%s.%s",
 				args.project,
 				args.dataset,
 				args.tableName))
 	case commontype.QueryToolType:
-		query = fmt.Sprintf(`
+		queryPrefix = fmt.Sprintf(`
+		with hashed_filter as (
 			select
 				*,
 				to_base64(sha256(concat(%s, "%s"))) hashed_%s
 			from (%s)
-		`, filter, salt, filter, args.builderQuery)
+		)
+		`,
+			filter, salt, filter, args.builderQuery)
 	}
 
-	err := args.bqClient.Dataset(args.dataset).
-		Table(args.tableName+"_hashed_filter").
-		Create(ctx, &bigquery.TableMetadata{
-			ViewQuery: query,
-		})
-	if err != nil {
-		return fmt.Errorf("unable to create view containing hashed filter: %v", err)
-	}
-
-	return nil
-}
-
-type selectHashedFilterViewArgs struct {
-	bqClient    *bigquery.Client
-	RawToolArgs []byte
-}
-
-type hashedFilterViewToolArgs struct {
-	Query string `json:"query"`
-}
-
-type selectHashedFilterViewResult struct {
-	rows []map[string]bigquery.Value
-}
-
-func selectHashedFilterView(ctx context.Context, args selectHashedFilterViewArgs) (selectHashedFilterViewResult, error) {
-	var toolArgs hashedFilterViewToolArgs
-	err := json.Unmarshal(args.RawToolArgs, &toolArgs)
-	if err != nil {
-		return selectHashedFilterViewResult{}, fmt.Errorf("unable to unmarshal tool args: %w", err)
-	}
-
-	selectJob, err := args.bqClient.Query(toolArgs.Query).
+	job, err := args.bqClient.Query(queryPrefix + args.query).
 		Run(ctx)
 	if err != nil {
-		return selectHashedFilterViewResult{}, fmt.Errorf("unable to run select job from hashed filter view: %w", err)
+		return runQueryResult{}, fmt.Errorf("unable to run select job from hashed filter view: %w", err)
 	}
 
-	selectJobStatus, err := selectJob.Wait(ctx)
+	jobStatus, err := job.Wait(ctx)
 	if err != nil {
-		return selectHashedFilterViewResult{}, fmt.Errorf("select job has failed: %w", err)
+		return runQueryResult{}, fmt.Errorf("select job has failed: %w", err)
 	}
 
-	if selectJobStatus.Err() != nil {
-		return selectHashedFilterViewResult{}, fmt.Errorf("select job has error: %w", selectJobStatus.Err())
+	if jobStatus.Err() != nil {
+		return runQueryResult{}, fmt.Errorf("select job has error: %w", jobStatus.Err())
 	}
 
-	selectJobRows, err := selectJob.Read(ctx)
+	resultRows, err := job.Read(ctx)
 	if err != nil {
-		return selectHashedFilterViewResult{}, fmt.Errorf("unable to get result of select job: %w", err)
+		return runQueryResult{}, fmt.Errorf("unable to get result of select job: %w", err)
 	}
 
 	rows := []map[string]bigquery.Value{}
 	for {
 		var row map[string]bigquery.Value
-		err := selectJobRows.Next(&row)
+		err := resultRows.Next(&row)
 		if err == iterator.Done {
 			break
 		}
 
 		if err != nil {
-			return selectHashedFilterViewResult{}, fmt.Errorf("row doesn't conform to resultRow map: %w", err)
+			return runQueryResult{}, fmt.Errorf("row doesn't conform to row map: %w", err)
 		}
 
 		rows = append(rows, row)
 	}
 
-	return selectHashedFilterViewResult{
+	return runQueryResult{
 		rows: rows,
 	}, nil
-}
-
-type dropHashedFilterViewArgs struct {
-	bqClient  *bigquery.Client
-	dataset   string
-	tableName string
-}
-
-func dropHashedFilterView(ctx context.Context, args dropHashedFilterViewArgs) error {
-	err := args.bqClient.Dataset(args.dataset).
-		Table(args.tableName + "_hashed_filter").
-		Delete(ctx)
-	if err != nil {
-		return fmt.Errorf("unable to drop hashed filter view: %w", err)
-	}
-
-	return nil
-
 }
 
 type ValidateToolQueryArgs struct {

@@ -46,7 +46,7 @@ func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAns
 
 	return GetAnswerResult{
 		Answer:               content.Content,
-		StringifiedFuncCalls: content.StringifiedFuncCalls,
+		StringifiedFuncCalls: content.StringifiedTool,
 	}, nil
 }
 
