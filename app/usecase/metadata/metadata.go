@@ -8,6 +8,7 @@ import (
 	"github.com/gatsu420/kisu-be/app/repository/bqrepo"
 	"github.com/gatsu420/kisu-be/app/repository/pgrepo"
 	"github.com/gatsu420/kisu-be/common/commoncrypto"
+	"github.com/gatsu420/kisu-be/common/commonctx"
 	"github.com/gatsu420/kisu-be/common/commontype"
 	"golang.org/x/oauth2"
 )
@@ -288,5 +289,32 @@ func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallTool
 
 	return CallToolResult{
 		Result: marshaledRows,
+	}, nil
+}
+
+type ValidateQueryArgs struct {
+	Query string
+}
+
+type ValidateQueryResult struct {
+	IsValid bool
+}
+
+func (u *usecaseImpl) ValidateToolQuery(ctx context.Context, args ValidateQueryArgs) (ValidateQueryResult, error) {
+	token, ok := ctx.Value(commonctx.TokenCtxKey).(*oauth2.Token)
+	if !ok {
+		return ValidateQueryResult{}, errors.New("unable to get token from context")
+	}
+
+	result, err := u.bqRepo.ValidateToolQuery(ctx, bqrepo.ValidateQueryArgs{
+		Query: args.Query,
+		Token: token,
+	})
+	if err != nil {
+		return ValidateQueryResult{}, err
+	}
+
+	return ValidateQueryResult{
+		IsValid: result.IsValid,
 	}, nil
 }

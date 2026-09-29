@@ -38,13 +38,13 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 	if err != nil {
 		return CallToolResult{}, fmt.Errorf("unable to create bigquery client: %w", err)
 	}
+	defer bqClient.Close()
 
 	tableLocationParts := strings.Split(args.TableLocation, ".")
 	if len(tableLocationParts) != 3 {
 		return CallToolResult{}, errors.New("table location must be in the form of project.dataset.table")
 	}
 
-	defer bqClient.Close()
 	defer func(ctx context.Context, args dropHashedFilterViewArgs) {
 		dropErr := dropHashedFilterView(ctx, args)
 		if dropErr != nil && err == nil {
@@ -215,4 +215,43 @@ func dropHashedFilterView(ctx context.Context, args dropHashedFilterViewArgs) er
 
 	return nil
 
+}
+
+type ValidateQueryArgs struct {
+	Query string
+	Token *oauth2.Token
+}
+
+type ValidateQueryResult struct {
+	IsValid bool
+}
+
+func (r *repositoryImpl) ValidateToolQuery(ctx context.Context, args ValidateQueryArgs) (ValidateQueryResult, error) {
+	googleAuthClient := r.googleAuth.Client(ctx,
+		googleauthadapter.ClientArgs{
+			Token: args.Token,
+		})
+
+	bqClient, err := bigquery.NewClient(ctx,
+		r.projectID,
+		option.WithHTTPClient(googleAuthClient.Client))
+	if err != nil {
+		return ValidateQueryResult{}, fmt.Errorf("unable to create bigquery client: %w", err)
+	}
+	defer bqClient.Close()
+
+	query := bqClient.Query(args.Query)
+	query.DryRun = true
+	job, err := query.Run(ctx)
+	if err != nil {
+		return ValidateQueryResult{}, fmt.Errorf("unable to run job for validating query: %w", err)
+	}
+
+	if job.LastStatus().Err() != nil {
+		return ValidateQueryResult{}, fmt.Errorf("job for validating query has failed: %w", err)
+	}
+
+	return ValidateQueryResult{
+		IsValid: true,
+	}, nil
 }
