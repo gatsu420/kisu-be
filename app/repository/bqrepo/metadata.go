@@ -2,7 +2,6 @@ package bqrepo
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -19,9 +18,8 @@ import (
 type CallToolArgs struct {
 	Type          commontype.ToolType
 	TableLocation string
-	Query         string
 	BuilderQuery  string
-	RawToolArgs   []byte
+	Query         string
 	Token         *oauth2.Token
 }
 
@@ -62,7 +60,6 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 		project:      tableLocationParts[0],
 		dataset:      tableLocationParts[1],
 		tableName:    tableLocationParts[2],
-		query:        args.Query,
 		builderQuery: args.BuilderQuery,
 	})
 	if err != nil {
@@ -70,8 +67,8 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 	}
 
 	selectResult, err := selectHashedFilterView(ctx, selectHashedFilterViewArgs{
-		bqClient:    bqClient,
-		RawToolArgs: args.RawToolArgs,
+		bqClient: bqClient,
+		query:    args.Query,
 	})
 	if err != nil {
 		return CallToolResult{}, fmt.Errorf("unable to select hashed filter view: %w", err)
@@ -88,7 +85,6 @@ type createHashedFilterViewArgs struct {
 	project      string
 	dataset      string
 	tableName    string
-	query        string
 	builderQuery string
 }
 
@@ -140,12 +136,8 @@ func createHashedFilterView(ctx context.Context, args createHashedFilterViewArgs
 }
 
 type selectHashedFilterViewArgs struct {
-	bqClient    *bigquery.Client
-	RawToolArgs []byte
-}
-
-type hashedFilterViewToolArgs struct {
-	Query string `json:"query"`
+	bqClient *bigquery.Client
+	query    string
 }
 
 type selectHashedFilterViewResult struct {
@@ -153,13 +145,7 @@ type selectHashedFilterViewResult struct {
 }
 
 func selectHashedFilterView(ctx context.Context, args selectHashedFilterViewArgs) (selectHashedFilterViewResult, error) {
-	var toolArgs hashedFilterViewToolArgs
-	err := json.Unmarshal(args.RawToolArgs, &toolArgs)
-	if err != nil {
-		return selectHashedFilterViewResult{}, fmt.Errorf("unable to unmarshal tool args: %w", err)
-	}
-
-	selectJob, err := args.bqClient.Query(toolArgs.Query).
+	selectJob, err := args.bqClient.Query(args.query).
 		Run(ctx)
 	if err != nil {
 		return selectHashedFilterViewResult{}, fmt.Errorf("unable to run select job from hashed filter view: %w", err)

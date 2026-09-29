@@ -22,12 +22,12 @@ type GetContentArgs struct {
 }
 
 type GetContentResult struct {
-	Content              json.RawMessage
-	StringifiedFuncCalls string
+	Content         json.RawMessage
+	StringifiedTool string
 }
 
 func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetContentResult, error) {
-	funcDeclarations, err := a.getFuncDeclaration(ctx, getFuncDeclarationArgs{
+	funcDeclarations, err := a.declareTool(ctx, declareToolArgs{
 		userID: args.UserID,
 	})
 	if err != nil {
@@ -54,7 +54,7 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 	}
 
 	contents := genai.Text(fmt.Sprintf(`
-		Put %v in hashed_%v func call args.
+		Put %v in hashed_%v tool args.
 		Translate %v into SQL.
 		Strive for single tool call.
 	`, args.Param, paramName, args.Prompt))
@@ -67,93 +67,85 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 		return GetContentResult{}, errors.New("prompt is not associated with any tool")
 	}
 
-	funcCall := resp.FunctionCalls()[0]
-	funcCallParam, ok := funcCall.Args["hashed_"+paramName]
+	tool := resp.FunctionCalls()[0]
+	toolBuilderQuery, ok := tool.Args["builder_query"]
 	if !ok {
-		return GetContentResult{}, errors.New("there is no hashed param key inside func call args")
+		return GetContentResult{}, errors.New("there is no builder_query key inside tool args")
 	}
 
-	stringifiedFuncCallParam, ok := funcCallParam.(string)
+	stringifiedToolBuilderQuery, ok := toolBuilderQuery.(string)
 	if !ok {
-		return GetContentResult{}, errors.New("unable to cast func call param to string")
+		return GetContentResult{}, errors.New("unable to cast tool builder query to string")
 	}
 
-	funcCallQuery, ok := funcCall.Args["query"]
+	toolQuery, ok := tool.Args["query"]
 	if !ok {
-		return GetContentResult{}, errors.New("there is no query key inside func call args")
+		return GetContentResult{}, errors.New("there is no query key inside tool args")
 	}
 
-	stringifiedFuncCallQuery, ok := funcCallQuery.(string)
+	stringifiedToolQuery, ok := toolQuery.(string)
 	if !ok {
-		return GetContentResult{}, errors.New("unable to cast func call query to string")
+		return GetContentResult{}, errors.New("unable to cast tool query to string")
 	}
 
-	funcCall.Args["query"] = stringifiedFuncCallQuery +
-		fmt.Sprintf(" where %v in (%v)",
-			"hashed_"+paramName,
-			stringifiedFuncCallParam)
-
-	funcCallBuilderQuery, ok := funcCall.Args["builder_query"]
+	toolParam, ok := tool.Args["hashed_"+paramName]
 	if !ok {
-		return GetContentResult{}, errors.New("there is no builder_query key inside func call args")
+		return GetContentResult{}, errors.New("there is no hashed param key inside tool args")
 	}
 
-	stringifiedFuncCallBuilderQuery, ok := funcCallBuilderQuery.(string)
+	stringifiedToolParam, ok := toolParam.(string)
 	if !ok {
-		return GetContentResult{}, errors.New("unable to cast func call builder query to string")
+		return GetContentResult{}, errors.New("unable to cast tool param to string")
 	}
 
-	marshaledFuncCall, err := json.MarshalIndent(funcCall, "", " ")
-	if err != nil {
-		return GetContentResult{}, fmt.Errorf("unable to marshal tool: %w", err)
-	}
+	stringifiedToolQuery += fmt.Sprintf(" where %s in (%s)",
+		"hashed_"+paramName,
+		stringifiedToolParam)
 
-	funcCallArgs, err := json.Marshal(funcCall.Args)
-	if err != nil {
-		return GetContentResult{}, fmt.Errorf("unable to marshal tool args: %w", err)
-	}
-
-	stringifiedFuncCalls := string(marshaledFuncCall)
 	toolResult, err := a.metadataUsecase.CallTool(ctx, metadata.CallToolArgs{
-		Type:          funcDeclarations.toolTypes[funcCall.Name],
-		TableLocation: funcCall.Name,
-		Query:         stringifiedFuncCallQuery,
-		BuilderQuery:  stringifiedFuncCallBuilderQuery,
-		RawToolArgs:   funcCallArgs,
+		Type:          funcDeclarations.toolTypes[tool.Name],
+		TableLocation: tool.Name,
+		BuilderQuery:  stringifiedToolBuilderQuery,
+		Query:         stringifiedToolQuery,
 		Token:         args.Token,
 	})
 	if err != nil {
 		return GetContentResult{}, fmt.Errorf("unable to call tool: %w", err)
 	}
 
+	marshaledTool, err := json.MarshalIndent(tool, "", " ")
+	if err != nil {
+		return GetContentResult{}, fmt.Errorf("unable to marshal tool: %w", err)
+	}
+
 	return GetContentResult{
-		Content:              toolResult.Result,
-		StringifiedFuncCalls: stringifiedFuncCalls,
+		Content:         toolResult.Result,
+		StringifiedTool: string(marshaledTool),
 	}, nil
 }
 
-type getFuncDeclarationArgs struct {
+type declareToolArgs struct {
 	userID string
 }
 
-type getFuncDeclarationResult struct {
+type declareToolResult struct {
 	declarations []*genai.FunctionDeclaration
 	toolTypes    map[string]commontype.ToolType
 }
 
-func (a *adapterImpl) getFuncDeclaration(ctx context.Context, args getFuncDeclarationArgs) (getFuncDeclarationResult, error) {
+func (a *adapterImpl) declareTool(ctx context.Context, args declareToolArgs) (declareToolResult, error) {
 	tools, err := a.metadataUsecase.GetTool(ctx, metadata.GetToolArgs{
 		UserID: args.userID,
 	})
 	if err != nil {
-		return getFuncDeclarationResult{}, fmt.Errorf("unable to get tools: %w", err)
+		return declareToolResult{}, fmt.Errorf("unable to get tools: %w", err)
 	}
 
-	funcDeclarations := []*genai.FunctionDeclaration{}
+	declarations := []*genai.FunctionDeclaration{}
 	toolTypes := map[string]commontype.ToolType{}
 	for _, r := range tools.Rows {
 		if !r.Type.ValidateToolType() {
-			return getFuncDeclarationResult{}, errors.New("invalid tool type")
+			return declareToolResult{}, errors.New("invalid tool type")
 		}
 
 		columns := []string{}
@@ -190,7 +182,7 @@ func (a *adapterImpl) getFuncDeclaration(ctx context.Context, args getFuncDeclar
 			r.TableName)
 		toolTypes[tableLocation] = r.Type
 
-		funcDeclarations = append(funcDeclarations, &genai.FunctionDeclaration{
+		declarations = append(declarations, &genai.FunctionDeclaration{
 			Name: tableLocation,
 			Description: fmt.Sprintf(`
 				Run select-only query from %s.%s.%s_hashed_filter to get
@@ -238,8 +230,8 @@ func (a *adapterImpl) getFuncDeclaration(ctx context.Context, args getFuncDeclar
 		})
 	}
 
-	return getFuncDeclarationResult{
-		declarations: funcDeclarations,
+	return declareToolResult{
+		declarations: declarations,
 		toolTypes:    toolTypes,
 	}, nil
 }
