@@ -31,35 +31,89 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 		userID: args.UserID,
 	})
 	if err != nil {
-		return GetContentResult{}, err
+		return GetContentResult{}, fmt.Errorf("unable to construct function declarations: %w", err)
+	}
+
+	marshaledFuncDeclarations, _ := json.MarshalIndent(funcDeclarations.declarations, "", " ")
+	fmt.Println(string(marshaledFuncDeclarations))
+
+	geminiTools := []*genai.Tool{
+		{FunctionDeclarations: funcDeclarations.declarations},
+	}
+
+	geminiTemp := float32(0.5)
+	geminiConfig := &genai.GenerateContentConfig{
+		ThinkingConfig: &genai.ThinkingConfig{
+			IncludeThoughts: true,
+			ThinkingLevel:   genai.ThinkingLevelMinimal,
+		},
+		Tools:       geminiTools,
+		Temperature: &geminiTemp,
 	}
 
 	paramName, ok := ctx.Value(commonctx.FilterCtxKey).(string)
 	if !ok {
-		return GetContentResult{}, errors.New("unable to get filter from context")
+		return GetContentResult{}, errors.New("there is no param name inside context")
 	}
 
-	funcCall, err := a.generateFuncCall(ctx, generateFuncCallArgs{
-		funcDeclarations: funcDeclarations.declarations,
-		prompt:           args.Prompt,
-		paramName:        paramName,
-		param:            args.Param,
-	})
+	contents := genai.Text(fmt.Sprintf(`
+		Put %v in hashed_%v func call args.
+		Translate %v into SQL.
+		Strive for single tool call.
+	`, args.Param, paramName, args.Prompt))
+	resp, err := a.genaiClient.Models.GenerateContent(ctx, "gemini-3.1-flash-lite", contents, geminiConfig)
 	if err != nil {
-		return GetContentResult{}, err
+		return GetContentResult{}, fmt.Errorf("unable to use gemini client: %w", err)
 	}
 
-	toolArg, err := buildToolArg(funcCall, paramName)
-	if err != nil {
-		return GetContentResult{}, err
+	if len(resp.FunctionCalls()) == 0 {
+		return GetContentResult{}, errors.New("prompt is not associated with any tool")
+	}
+
+	funcCall := resp.FunctionCalls()[0]
+	funcCallParam, ok := funcCall.Args["hashed_"+paramName]
+	if !ok {
+		return GetContentResult{}, errors.New("there is no hashed param key inside func call args")
+	}
+
+	stringifiedFuncCallParam, ok := funcCallParam.(string)
+	if !ok {
+		return GetContentResult{}, errors.New("unable to cast func call param to string")
+	}
+
+	funcCallQuery, ok := funcCall.Args["query"]
+	if !ok {
+		return GetContentResult{}, errors.New("there is no query key inside func call args")
+	}
+
+	stringifiedFuncCallQuery, ok := funcCallQuery.(string)
+	if !ok {
+		return GetContentResult{}, errors.New("unable to cast func call query to string")
+	}
+
+	funcCall.Args["query"] = stringifiedFuncCallQuery +
+		fmt.Sprintf(" where %v in (%v)",
+			"hashed_"+paramName,
+			stringifiedFuncCallParam)
+
+	funcCallBuilderQuery, ok := funcCall.Args["builder_query"]
+	if !ok {
+		return GetContentResult{}, errors.New("there is no builder_query key inside func call args")
+	}
+
+	stringifiedFuncCallBuilderQuery, ok := funcCallBuilderQuery.(string)
+	if !ok {
+		return GetContentResult{}, errors.New("unable to cast func call builder query to string")
 	}
 
 	marshaledFuncCall, err := json.MarshalIndent(funcCall, "", " ")
 	if err != nil {
 		return GetContentResult{}, fmt.Errorf("unable to marshal tool: %w", err)
 	}
+	stringifiedFuncCalls := string(marshaledFuncCall)
+	fmt.Println(string(stringifiedFuncCalls))
 
-	rawToolArgs, err := json.Marshal(funcCall.Args)
+	funcCallArgs, err := json.Marshal(funcCall.Args)
 	if err != nil {
 		return GetContentResult{}, fmt.Errorf("unable to marshal tool args: %w", err)
 	}
@@ -67,106 +121,19 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 	toolResult, err := a.metadataUsecase.CallTool(ctx, metadata.CallToolArgs{
 		Type:          funcDeclarations.toolTypes[funcCall.Name],
 		TableLocation: funcCall.Name,
-		Query:         toolArg.query,
-		BuilderQuery:  toolArg.builderQuery,
-		RawToolArgs:   rawToolArgs,
+		Query:         stringifiedFuncCallQuery,
+		BuilderQuery:  stringifiedFuncCallBuilderQuery,
+		RawToolArgs:   funcCallArgs,
 		Token:         args.Token,
 	})
 	if err != nil {
-		return GetContentResult{}, err
+		return GetContentResult{}, fmt.Errorf("unable to call tool: %w", err)
 	}
 
 	return GetContentResult{
 		Content:              toolResult.Result,
-		StringifiedFuncCalls: string(marshaledFuncCall),
+		StringifiedFuncCalls: stringifiedFuncCalls,
 	}, nil
-}
-
-type generateFuncCallArgs struct {
-	funcDeclarations []*genai.FunctionDeclaration
-	prompt           string
-	paramName        string
-	param            string
-}
-
-func (a *adapterImpl) generateFuncCall(ctx context.Context, args generateFuncCallArgs) (*genai.FunctionCall, error) {
-	config := buildGenerateContentConfig(args.funcDeclarations)
-	contents := genai.Text(fmt.Sprintf(`
-		Put %v in hashed_%v func call args.
-		Translate %v into SQL.
-		Strive for single tool call.
-	`, args.param, args.paramName, args.prompt))
-
-	resp, err := a.genaiClient.Models.GenerateContent(ctx, "gemini-3.1-flash-lite", contents, config)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(resp.FunctionCalls()) == 0 {
-		return nil, errors.New("prompt is not associated with any tool")
-	}
-
-	return resp.FunctionCalls()[0], nil
-}
-
-func buildGenerateContentConfig(funcDeclarations []*genai.FunctionDeclaration) *genai.GenerateContentConfig {
-	geminiTemp := float32(0.5)
-	return &genai.GenerateContentConfig{
-		ThinkingConfig: &genai.ThinkingConfig{
-			IncludeThoughts: true,
-			ThinkingLevel:   genai.ThinkingLevelMinimal,
-		},
-		Tools: []*genai.Tool{
-			{FunctionDeclarations: funcDeclarations},
-		},
-		Temperature: &geminiTemp,
-	}
-}
-
-type toolArg struct {
-	query        string
-	builderQuery string
-}
-
-func buildToolArg(funcCall *genai.FunctionCall, paramName string) (toolArg, error) {
-	hashedParam, err := getFuncCallStringArg(funcCall, "hashed_"+paramName, "hashed param", "param")
-	if err != nil {
-		return toolArg{}, err
-	}
-
-	query, err := getFuncCallStringArg(funcCall, "query", "query", "query")
-	if err != nil {
-		return toolArg{}, err
-	}
-
-	builderQuery, err := getFuncCallStringArg(funcCall, "builder_query", "builder_query", "builder query")
-	if err != nil {
-		return toolArg{}, err
-	}
-
-	funcCall.Args["query"] = query +
-		fmt.Sprintf(" where %v in (%v)",
-			"hashed_"+paramName,
-			hashedParam)
-
-	return toolArg{
-		query:        query,
-		builderQuery: builderQuery,
-	}, nil
-}
-
-func getFuncCallStringArg(funcCall *genai.FunctionCall, key, missingLabel, castLabel string) (string, error) {
-	raw, ok := funcCall.Args[key]
-	if !ok {
-		return "", fmt.Errorf("there is no %v key inside func call args", missingLabel)
-	}
-
-	value, ok := raw.(string)
-	if !ok {
-		return "", fmt.Errorf("unable to cast func call %v to string", castLabel)
-	}
-
-	return value, nil
 }
 
 type getFuncDeclarationArgs struct {
@@ -183,38 +150,54 @@ func (a *adapterImpl) getFuncDeclaration(ctx context.Context, args getFuncDeclar
 		UserID: args.userID,
 	})
 	if err != nil {
-		return getFuncDeclarationResult{}, err
+		return getFuncDeclarationResult{}, fmt.Errorf("unable to get tools: %w", err)
 	}
 
 	funcDeclarations := []*genai.FunctionDeclaration{}
 	toolTypes := map[string]commontype.ToolType{}
 	for _, r := range tools.Rows {
-		declaration, tableLocation, err := buildFuncDeclaration(r)
-		if err != nil {
-			return getFuncDeclarationResult{}, err
+		if !r.Type.ValidateToolType() {
+			return getFuncDeclarationResult{}, errors.New("invalid tool type")
 		}
 
-		funcDeclarations = append(funcDeclarations, declaration)
+		columns := []string{}
+		for _, c := range r.Columns {
+			columns = append(columns, fmt.Sprintf("- %v (%v): %v",
+				c.Name, c.Type, c.Description))
+		}
+
+		var builderQuery string
+		if r.Type == commontype.QueryToolType {
+			builderQuery = fmt.Sprintf(`
+			That view is build using this builder query:
+			%v
+			`, r.Examples[0].Query)
+		}
+
+		examples := []string{}
+		for _, e := range r.Examples {
+			if r.Type == commontype.TableToolType {
+				queryWithHashedFilter := strings.ReplaceAll(e.Query,
+					r.TableName,
+					r.TableName+"_hashed_filter")
+				examples = append(examples, fmt.Sprintf("- %s\n\t%s",
+					e.Description, queryWithHashedFilter))
+			} else {
+				examples = append(examples, fmt.Sprintf("- %s\n\t%s",
+					e.Description, e.Query))
+			}
+		}
+
+		tableLocation := fmt.Sprintf("%s.%s.%s",
+			r.Project,
+			r.Dataset,
+			r.TableName)
 		toolTypes[tableLocation] = r.Type
-	}
 
-	return getFuncDeclarationResult{
-		declarations: funcDeclarations,
-		toolTypes:    toolTypes,
-	}, nil
-}
-
-func buildFuncDeclaration(r metadata.GetToolRow) (*genai.FunctionDeclaration, string, error) {
-	if !r.Type.ValidateToolType() {
-		return nil, "", errors.New("invalid tool type")
-	}
-
-	tableLocation := buildTableLocation(r)
-
-	return &genai.FunctionDeclaration{
-		Name: tableLocation,
-		Description: fmt.Sprintf(`
-				Run select-only query from %s_hashed_filter to get
+		funcDeclarations = append(funcDeclarations, &genai.FunctionDeclaration{
+			Name: tableLocation,
+			Description: fmt.Sprintf(`
+				Run select-only query from %s.%s.%s_hashed_filter to get
 				information about: %s.
 
 				%s
@@ -224,88 +207,43 @@ func buildFuncDeclaration(r metadata.GetToolRow) (*genai.FunctionDeclaration, st
 
 				Sample query using the view:
 				%s
-				`, tableLocation,
-			r.ToolDescription,
-			buildBuilderQuery(r),
-			buildColumnsDescription(r),
-			buildExamples(r)),
-
-		Parameters: buildParameterSchema(r),
-		Response:   buildResponseSchema(),
-	}, tableLocation, nil
-}
-
-func buildTableLocation(r metadata.GetToolRow) string {
-	return fmt.Sprintf("%s.%s.%s",
-		r.Project,
-		r.Dataset,
-		r.TableName)
-}
-
-func buildColumnsDescription(r metadata.GetToolRow) string {
-	columns := []string{}
-	for _, c := range r.Columns {
-		columns = append(columns, fmt.Sprintf("- %v (%v): %v",
-			c.Name, c.Type, c.Description))
-	}
-
-	return strings.Join(columns, "\n")
-}
-
-func buildBuilderQuery(r metadata.GetToolRow) string {
-	if r.Type != commontype.QueryToolType {
-		return ""
-	}
-
-	return fmt.Sprintf(`
-			That view is build using this builder query:
-			%v
-			`, r.Examples[0].Query)
-}
-
-func buildExamples(r metadata.GetToolRow) string {
-	examples := []string{}
-	for _, e := range r.Examples {
-		if r.Type == commontype.TableToolType {
-			queryWithHashedFilter := strings.ReplaceAll(e.Query,
+				`, r.Project,
+				r.Dataset,
 				r.TableName,
-				r.TableName+"_hashed_filter")
-			examples = append(examples, fmt.Sprintf("- %s\n\t%s",
-				e.Description, queryWithHashedFilter))
-		} else {
-			examples = append(examples, fmt.Sprintf("- %s\n\t%s",
-				e.Description, e.Query))
-		}
+				r.ToolDescription,
+				builderQuery,
+				strings.Join(columns, "\n"),
+				strings.Join(examples, "\n")),
+
+			Parameters: &genai.Schema{
+				Type: genai.TypeObject,
+				Properties: map[string]*genai.Schema{
+					"hashed_" + r.ParamName: {
+						Type:        genai.TypeString,
+						Description: "Hashed param delimited by comma. Each element is surrounded by quote.",
+					},
+					"query": {
+						Type:        genai.TypeString,
+						Description: "Query to get wanted information without WHERE",
+					},
+					"builder_query": {
+						Type:        genai.TypeString,
+						Description: "Query that is used to build *_hashed_filter view",
+					},
+				},
+				Required: []string{"hashed_" + r.ParamName, "query", "builder_query"},
+			},
+
+			Response: &genai.Schema{
+				Type:        genai.TypeArray,
+				Items:       &genai.Schema{Type: genai.TypeString},
+				Description: "List of information returned by query, 1 item represents 1 row",
+			},
+		})
 	}
 
-	return strings.Join(examples, "\n")
-}
-
-func buildParameterSchema(r metadata.GetToolRow) *genai.Schema {
-	return &genai.Schema{
-		Type: genai.TypeObject,
-		Properties: map[string]*genai.Schema{
-			"hashed_" + r.ParamName: {
-				Type:        genai.TypeString,
-				Description: "Hashed param delimited by comma. Each element is surrounded by quote.",
-			},
-			"query": {
-				Type:        genai.TypeString,
-				Description: "Query to get wanted information without WHERE",
-			},
-			"builder_query": {
-				Type:        genai.TypeString,
-				Description: "Query that is used to build *_hashed_filter view",
-			},
-		},
-		Required: []string{"hashed_" + r.ParamName, "query", "builder_query"},
-	}
-}
-
-func buildResponseSchema() *genai.Schema {
-	return &genai.Schema{
-		Type:        genai.TypeArray,
-		Items:       &genai.Schema{Type: genai.TypeString},
-		Description: "List of information returned by query, 1 item represents 1 row",
-	}
+	return getFuncDeclarationResult{
+		declarations: funcDeclarations,
+		toolTypes:    toolTypes,
+	}, nil
 }
