@@ -24,6 +24,35 @@ export async function fetchAnswer(
   return res.json();
 }
 
+export async function validateToolQuery(query: string): Promise<boolean> {
+  const url = new URL("/answer/v1/validate-tool-query", window.location.origin);
+  url.searchParams.set("query", query);
+
+  const res = await fetch(url.toString(), {
+    method: "GET",
+    credentials: "include",
+  });
+
+  if (res.status === 401) {
+    throw new Error("unauthorized");
+  }
+
+  if (!res.ok) {
+    throw new Error("verify request failed");
+  }
+
+  const data: unknown = await res.json();
+  const is_valid =
+    typeof data === "object" &&
+    data !== null &&
+    "is_valid" in data &&
+    typeof data.is_valid === "boolean";
+  if (!is_valid) {
+    throw new Error("verify response is invalid");
+  }
+  return (data as { is_valid: boolean }).is_valid;
+}
+
 export type ToolType = "table" | "query";
 
 // Legacy rows may have an empty type. Treat them as table tools.

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { addTool, type ToolType } from "../lib/api";
+import { addTool, validateToolQuery, type ToolType } from "../lib/api";
 import Header from "../components/Header";
 import styles from "./Tool.module.css";
 
@@ -10,9 +10,13 @@ interface Column {
   description: string;
 }
 
+type QueryStatus = "unverified" | "checking" | "valid" | "invalid";
+
 interface Query {
   description: string;
   query: string;
+  status: QueryStatus;
+  message?: string;
 }
 
 interface FormData {
@@ -49,7 +53,7 @@ export default function AddTool() {
     dataset: "",
     table_name: "",
     columns: [{ name: "", type: "", description: "" }],
-    query: [{ description: "", query: "" }],
+    query: [{ description: "", query: "", status: "unverified" }],
   });
 
   const handleInputChange = (
@@ -97,13 +101,21 @@ export default function AddTool() {
   ) => {
     const newQuery = [...formData.query];
     newQuery[index] = { ...newQuery[index], [field]: value };
+    // Query text changed, so the old verification no longer counts.
+    if (field === "query") {
+      newQuery[index].status = "unverified";
+      newQuery[index].message = undefined;
+    }
     setFormData((prev) => ({ ...prev, query: newQuery }));
   };
 
   const addQuery = () => {
     setFormData((prev) => ({
       ...prev,
-      query: [...prev.query, { description: "", query: "" }],
+      query: [
+        ...prev.query,
+        { description: "", query: "", status: "unverified" as const },
+      ],
     }));
   };
 
@@ -158,6 +170,91 @@ export default function AddTool() {
     requestAnimationFrame(() => el.setSelectionRange(caret, caret));
   };
 
+  const setQueryStatus = (
+    index: number,
+    text: string,
+    status: QueryStatus,
+    message?: string,
+  ) => {
+    setFormData((prev) => {
+      // Text changed or row removed while the request ran.
+      // Keep the row unverified and drop the stale result.
+      if (prev.query[index]?.query !== text) return prev;
+      return {
+        ...prev,
+        query: prev.query.map((q, i) =>
+          i === index ? { ...q, status, message } : q,
+        ),
+      };
+    });
+  };
+
+  const verifyQuery = async (index: number) => {
+    const text = formData.query[index].query;
+    if (!text.trim()) {
+      setQueryStatus(index, text, "unverified", "Query is empty");
+      return;
+    }
+
+    setQueryStatus(index, text, "checking");
+    try {
+      const valid = await validateToolQuery(text);
+      setQueryStatus(index, text, valid ? "valid" : "invalid");
+    } catch (e) {
+      if (e instanceof Error && e.message === "unauthorized") {
+        navigate("/login");
+        return;
+      }
+      setQueryStatus(
+        index,
+        text,
+        "unverified",
+        "Failed to verify",
+      );
+    }
+  };
+
+  // Every query must pass verification before the tool can be added.
+  const allQueriesValid =
+    formData.query.length > 0 &&
+    formData.query.every((q) => q.status === "valid");
+
+  const verifyRow = (index: number) => {
+    const { status, message } = formData.query[index];
+    // No text until the user verifies or an error happens.
+    const text =
+      message ??
+      (status === "checking"
+        ? "Checking..."
+        : status === "valid"
+          ? "Verified"
+          : status === "invalid"
+            ? "Invalid query"
+            : null);
+    const tone =
+      status === "valid"
+        ? styles.verifyOk
+        : status === "invalid" || message
+          ? styles.verifyBad
+          : styles.verifyIdle;
+
+    return (
+      <div className={styles.verifyRow}>
+        <button
+          type="button"
+          className={styles.verifyBtn}
+          onClick={() => verifyQuery(index)}
+          disabled={status === "checking"}
+        >
+          {status === "checking" ? "Verifying..." : "Verify"}
+        </button>
+        {text !== null && (
+          <span className={`${styles.verifyStatus} ${tone}`}>{text}</span>
+        )}
+      </div>
+    );
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -179,6 +276,11 @@ export default function AddTool() {
       return;
     }
 
+    if (!allQueriesValid) {
+      setError("Verify all queries before adding the tool");
+      return;
+    }
+
     setLoading(true);
     try {
       await addTool({
@@ -188,7 +290,10 @@ export default function AddTool() {
         table_name: mode === "table" ? formData.table_name : "",
         columns: formData.columns,
         type: mode,
-        examples: formData.query,
+        examples: formData.query.map(({ description, query }) => ({
+          description,
+          query,
+        })),
         param_name: paramColumn.name.trim(),
         param_type: "",
         param_description: "",
@@ -202,7 +307,7 @@ export default function AddTool() {
         dataset: "",
         table_name: "",
         columns: [{ name: "", type: "", description: "" }],
-        query: [{ description: "", query: "" }],
+        query: [{ description: "", query: "", status: "unverified" }],
       });
       setParamIndex(null);
     } catch (e) {
@@ -267,23 +372,27 @@ export default function AddTool() {
                     handleQueryChange(index, "query", e.target.value)
                   }
                 />
+                {verifyRow(index)}
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <textarea
-          className={styles.queryArea}
-          placeholder="e.g. SELECT * FROM users WHERE email = ?"
-          value={formData.query[0].query}
-          rows={15}
-          onKeyDown={(e) =>
-            handleTabKey(e, formData.query[0].query, (next) =>
-              handleQueryChange(0, "query", next),
-            )
-          }
-          onChange={(e) => handleQueryChange(0, "query", e.target.value)}
-        />
+        <>
+          <textarea
+            className={styles.queryArea}
+            placeholder="e.g. SELECT * FROM users WHERE email = ?"
+            value={formData.query[0].query}
+            rows={15}
+            onKeyDown={(e) =>
+              handleTabKey(e, formData.query[0].query, (next) =>
+                handleQueryChange(0, "query", next),
+              )
+            }
+            onChange={(e) => handleQueryChange(0, "query", e.target.value)}
+          />
+          {verifyRow(0)}
+        </>
       )}
       {mode === "table" && (
         <button type="button" className={styles.addBtn} onClick={addQuery}>
@@ -481,7 +590,7 @@ export default function AddTool() {
               <button
                 type="submit"
                 className={styles.submitBtn}
-                disabled={loading}
+                disabled={loading || !allQueriesValid}
               >
                 {loading ? "Adding..." : "Add Tool"}
               </button>
