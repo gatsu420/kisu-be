@@ -53,8 +53,8 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 	}
 
 	contents := genai.Text(fmt.Sprintf(`
-		Put %v in hashed_%v tool args.
-		Translate %v into SQL.
+		Put %s in hashed_%s tool args.
+		Translate %s into SQL.
 		Strive for single tool call.
 	`, args.Param, paramName, args.Prompt))
 	resp, err := a.genaiClient.Models.GenerateContent(ctx, "gemini-3.1-flash-lite", contents, geminiConfig)
