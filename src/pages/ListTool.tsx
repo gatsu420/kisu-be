@@ -164,23 +164,23 @@ function ToolCard({ tool }: ToolCardProps) {
         <p className={styles.sectionTitle}>
           {type === "table" ? "Examples" : "Query"}
         </p>
-        <div className={styles.exampleList}>
-          {tool.examples.map((example, i) =>
+        <div className={styles.exampleLists}>
+          {tool.examples.map((examples, i) =>
             type === "table" ? (
               <details key={i} className={styles.collapsible}>
                 <summary className={styles.collapsibleTitle}>
-                  {example.description || `Example ${i + 1}`}
+                  {examples.description || `Example ${i + 1}`}
                 </summary>
-                <HighlightedCode code={example.query} />
+                <HighlightedCode code={examples.query} />
               </details>
             ) : (
-              <div key={i} className={styles.example}>
-                {example.description && (
-                  <p className={styles.exampleDescription}>
-                    {example.description}
+              <div key={i} className={styles.examples}>
+                {examples.description && (
+                  <p className={styles.exampleDescriptions}>
+                    {examples.description}
                   </p>
                 )}
-                <HighlightedCode code={example.query} />
+                <HighlightedCode code={examples.query} />
               </div>
             ),
           )}

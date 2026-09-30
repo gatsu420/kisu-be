@@ -100,7 +100,7 @@ export interface ToolColumn {
   description: string;
 }
 
-export interface ToolQueryExample {
+export interface ToolQueryExamples {
   description: string;
   query: string;
 }
@@ -112,7 +112,7 @@ export interface Tool {
   table_name: string;
   columns: ToolColumn[];
   type: ToolType;
-  examples: ToolQueryExample[];
+  examples: ToolQueryExamples[];
   param_name: string;
   param_type: string;
   param_description: string;

@@ -319,14 +319,14 @@ export default function AddTool() {
   const queryForm = (
     <div className={styles.section}>
       <p className={styles.sectionHeader}>
-        {mode === "table" ? "Example" : "Query"}
+        {mode === "table" ? "Examples" : "Query"}
       </p>
       {mode === "table" ? (
         <div className={styles.greyCardList}>
           {formData.query.map((entry, index) => (
             <div
               key={index}
-              className={`${styles.greyCard} ${styles.exampleCard}`}
+              className={`${styles.greyCard} ${styles.exampleCards}`}
             >
               {formData.query.length > 1 && (
                 <button
