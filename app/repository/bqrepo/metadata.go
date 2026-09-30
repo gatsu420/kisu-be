@@ -86,31 +86,22 @@ func runQuery(ctx context.Context, args runQueryArgs) (runQueryResult, error) {
 		return runQueryResult{}, errors.New("unable to get salt from context")
 	}
 
-	var queryPrefix string
+	queryPrefix := fmt.Sprintf(`
+	with hashed_filter as (
+		select
+			*,
+			to_base64(sha256(concat(%s, "%s"))) hashed_%s
+		from
+	`, filter, salt, filter)
 	switch args.toolType {
 	case commontype.TableToolType:
-		queryPrefix = fmt.Sprintf(`
-		with hashed_filter as (
-			select
-				*,
-				to_base64(sha256(concat(%s, "%s"))) hashed_%s
-			from %s
-		)
-		`,
-			filter, salt, filter, fmt.Sprintf("%s.%s.%s",
-				args.project,
-				args.dataset,
-				args.tableName))
+		queryPrefix += fmt.Sprintf(" %s.%s.%s\n)\n",
+			args.project,
+			args.dataset,
+			args.tableName)
 	case commontype.QueryToolType:
-		queryPrefix = fmt.Sprintf(`
-		with hashed_filter as (
-			select
-				*,
-				to_base64(sha256(concat(%s, "%s"))) hashed_%s
-			from (%s)
-		)
-		`,
-			filter, salt, filter, args.builderQuery)
+		queryPrefix += fmt.Sprintf(" (%s)\n)\n",
+			args.builderQuery)
 	}
 
 	job, err := args.bqClient.Query(queryPrefix + args.query).
