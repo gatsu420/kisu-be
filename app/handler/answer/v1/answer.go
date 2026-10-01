@@ -294,3 +294,60 @@ func (h *handlerImpl) ValidateToolQuery(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, errMsg, statusCode)
 	}
 }
+
+type GetToolTableMetadataResult struct {
+	Description string                       `json:"description"`
+	Columns     []GetToolTableMetadataColumn `json:"columns"`
+}
+
+type GetToolTableMetadataColumn struct {
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
+}
+
+func (h *handlerImpl) GetToolTableMetadata(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	var errMsg string
+	var statusCode int
+
+	result, err := h.metadataUsecase.GetToolTableMetadata(r.Context(), metadata.GetToolTableMetadataArgs{
+		Type:         commontype.ToolType(r.URL.Query().Get("type")),
+		Project:      r.URL.Query().Get("project"),
+		Dataset:      r.URL.Query().Get("dataset"),
+		TableName:    r.URL.Query().Get("table_name"),
+		BuilderQuery: r.URL.Query().Get("builder_query"),
+	})
+	if err != nil {
+		errMsg = "unable to get tool table metadata"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
+		return
+	}
+
+	columns := []GetToolTableMetadataColumn{}
+	for _, c := range result.Columns {
+		columns = append(columns, GetToolTableMetadataColumn{
+			Name:        c.Name,
+			Type:        c.Type,
+			Description: c.Description,
+		})
+	}
+
+	err = json.NewEncoder(w).Encode(GetToolTableMetadataResult{
+		Description: result.Description,
+		Columns:     columns,
+	})
+	if err != nil {
+		errMsg = "unable to write response"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
+	}
+}

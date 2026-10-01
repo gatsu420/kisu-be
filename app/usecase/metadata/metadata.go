@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"github.com/gatsu420/kisu-be/app/repository/bqrepo"
 	"github.com/gatsu420/kisu-be/app/repository/pgrepo"
@@ -129,6 +130,12 @@ type AddToolExample struct {
 func (u *usecaseImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 	if !args.Type.ValidateToolType() {
 		return errors.New("invalid type value")
+	}
+
+	if args.Type == commontype.TableToolType {
+		if args.Project == "" || args.Dataset == "" || args.TableName == "" {
+			return errors.New("table tool requires all location components to be supplied")
+		}
 	}
 
 	if args.Type == commontype.QueryToolType {
@@ -279,14 +286,26 @@ func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallTool
 		return CallToolResult{}, errors.New("unable to get salt from context")
 	}
 
+	var project, dataset, tableName string
+	if args.Type == commontype.TableToolType {
+		locationParts := strings.Split(args.TableLocation, ".")
+		if len(locationParts) != 3 {
+			return CallToolResult{}, errors.New("table location for table tool must be in the form of \"project.dataset.table_name\"")
+		}
+
+		project, dataset, tableName = locationParts[0], locationParts[1], locationParts[2]
+	}
+
 	result, err := u.bqRepo.CallTool(ctx, bqrepo.CallToolArgs{
-		Filter:        filter,
-		Salt:          salt,
-		Type:          args.Type,
-		TableLocation: args.TableLocation,
-		BuilderQuery:  args.BuilderQuery,
-		Query:         args.Query,
-		Token:         args.Token,
+		Filter:       filter,
+		Salt:         salt,
+		Type:         args.Type,
+		Project:      project,
+		Dataset:      dataset,
+		TableName:    tableName,
+		BuilderQuery: args.BuilderQuery,
+		Query:        args.Query,
+		Token:        args.Token,
 	})
 	if err != nil {
 		return CallToolResult{}, err
@@ -326,5 +345,57 @@ func (u *usecaseImpl) ValidateToolQuery(ctx context.Context, args ValidateToolQu
 
 	return ValidateToolQueryResult{
 		IsValid: result.IsValid,
+	}, nil
+}
+
+type GetToolTableMetadataArgs struct {
+	Type         commontype.ToolType
+	Project      string
+	Dataset      string
+	TableName    string
+	BuilderQuery string
+}
+
+type GetToolTableMetadataResult struct {
+	Description string
+	Columns     []GetToolTableMetadataColumn
+}
+
+type GetToolTableMetadataColumn struct {
+	Name        string
+	Type        string
+	Description string
+}
+
+func (u *usecaseImpl) GetToolTableMetadata(ctx context.Context, args GetToolTableMetadataArgs) (GetToolTableMetadataResult, error) {
+	token, ok := ctx.Value(commonctx.TokenCtxKey).(*oauth2.Token)
+	if !ok {
+		return GetToolTableMetadataResult{}, errors.New("unable to get token from context")
+	}
+
+	result, err := u.bqRepo.GetToolTableMetadata(ctx, bqrepo.GetToolTableMetadataArgs{
+		Type:         args.Type,
+		Project:      args.Project,
+		Dataset:      args.Dataset,
+		TableName:    args.TableName,
+		BuilderQuery: args.BuilderQuery,
+		Token:        token,
+	})
+	if err != nil {
+		return GetToolTableMetadataResult{}, err
+	}
+
+	columns := []GetToolTableMetadataColumn{}
+	for _, c := range result.Columns {
+		columns = append(columns, GetToolTableMetadataColumn{
+			Name:        c.Name,
+			Type:        c.Type,
+			Description: c.Description,
+		})
+	}
+
+	return GetToolTableMetadataResult{
+		Description: result.Description,
+		Columns:     columns,
 	}, nil
 }

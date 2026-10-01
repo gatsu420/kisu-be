@@ -173,10 +173,17 @@ func (a *adapterImpl) declareTool(ctx context.Context, args declareToolArgs) (de
 		examples := `
 		Example query using the CTE:
 		`
-		tableLocation := fmt.Sprintf("%s.%s.%s",
-			r.Project,
-			r.Dataset,
-			r.TableName)
+		var tableLocation string
+		switch r.Type {
+		case commontype.TableToolType:
+			tableLocation = fmt.Sprintf("%s.%s.%s",
+				r.Project,
+				r.Dataset,
+				r.TableName)
+		case commontype.QueryToolType:
+			tableLocation = r.TableName
+		}
+
 		if r.Type == commontype.TableToolType {
 			for _, e := range r.Examples {
 				exampleItems = append(exampleItems,

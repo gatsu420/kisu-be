@@ -93,7 +93,7 @@ func createServer(ctx context.Context, config commonconfig.Config) (*http.Server
 	if err != nil {
 		return nil, fmt.Errorf("unable to create postgres connection pool: %w", err)
 	}
-	pgRepo := pgrepo.NewRepository(pgPool)
+	pgRepo := pgrepo.NewRepository(config.ProjectID, pgPool)
 
 	genaiClient, err := genai.NewClient(ctx, &genai.ClientConfig{
 		APIKey: config.GeminiApiKey,
@@ -119,6 +119,7 @@ func createServer(ctx context.Context, config commonconfig.Config) (*http.Server
 	mux.Handle("POST /answer/v1/tool", withAuthRoute(http.HandlerFunc(answerHandler.AddTool)))
 	mux.Handle("GET /answer/v1/tool", withAuthRoute(http.HandlerFunc(answerHandler.GetTool)))
 	mux.Handle("GET /answer/v1/validate-tool-query", withAuthRoute(http.HandlerFunc(answerHandler.ValidateToolQuery)))
+	mux.Handle("GET /answer/v1/get-tool-table-metadata", withAuthRoute(http.HandlerFunc(answerHandler.GetToolTableMetadata)))
 	mux.Handle("GET /answer/v1/answer", withAuthRoute(http.HandlerFunc(answerHandler.GetAnswer)))
 
 	return &http.Server{
