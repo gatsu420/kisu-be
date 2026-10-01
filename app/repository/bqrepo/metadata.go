@@ -144,13 +144,7 @@ func (r *repositoryImpl) GetToolTableMetadata(ctx context.Context, args GetToolT
 	}
 	defer bqClient.Close()
 
-	metadata, err := bqClient.DatasetInProject(args.Project, args.Dataset).
-		Table(args.TableName).
-		Metadata(ctx)
-	if err != nil {
-		return GetToolTableMetadataResult{}, fmt.Errorf("unable to get metadata: %w", err)
-	}
-
+	var description string
 	columns := []GetToolTableMetadataColumn{}
 	switch args.Type {
 	case commontype.TableToolType:
@@ -161,6 +155,7 @@ func (r *repositoryImpl) GetToolTableMetadata(ctx context.Context, args GetToolT
 			return GetToolTableMetadataResult{}, fmt.Errorf("unable to get metadata: %w", err)
 		}
 
+		description = metadata.Description
 		for _, s := range metadata.Schema {
 			columns = append(columns, GetToolTableMetadataColumn{
 				Name:        s.Name,
@@ -189,7 +184,7 @@ func (r *repositoryImpl) GetToolTableMetadata(ctx context.Context, args GetToolT
 	}
 
 	return GetToolTableMetadataResult{
-		Description: metadata.Description,
+		Description: description,
 		Columns:     columns,
 	}, nil
 }
