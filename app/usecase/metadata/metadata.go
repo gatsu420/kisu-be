@@ -269,7 +269,19 @@ type CallToolResult struct {
 }
 
 func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallToolResult, error) {
+	filter, ok := ctx.Value(commonctx.FilterCtxKey).(string)
+	if !ok {
+		return CallToolResult{}, errors.New("unable to get filter from context")
+	}
+
+	salt, ok := ctx.Value(commonctx.SaltCtxKey).(string)
+	if !ok {
+		return CallToolResult{}, errors.New("unable to get salt from context")
+	}
+
 	result, err := u.bqRepo.CallTool(ctx, bqrepo.CallToolArgs{
+		Filter:        filter,
+		Salt:          salt,
 		Type:          args.Type,
 		TableLocation: args.TableLocation,
 		BuilderQuery:  args.BuilderQuery,

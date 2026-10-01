@@ -8,7 +8,6 @@ import (
 
 	"cloud.google.com/go/bigquery"
 	"github.com/gatsu420/kisu-be/app/adapter/googleauthadapter"
-	"github.com/gatsu420/kisu-be/common/commonctx"
 	"github.com/gatsu420/kisu-be/common/commontype"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/iterator"
@@ -16,6 +15,8 @@ import (
 )
 
 type CallToolArgs struct {
+	Filter        string
+	Salt          string
 	Type          commontype.ToolType
 	TableLocation string
 	BuilderQuery  string
@@ -45,6 +46,8 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 
 	result, err := runQuery(ctx, runQueryArgs{
 		bqClient:     bqClient,
+		filter:       args.Filter,
+		salt:         args.Salt,
 		toolType:     args.Type,
 		project:      tableLocationParts[0],
 		dataset:      tableLocationParts[1],
@@ -63,6 +66,8 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 
 type runQueryArgs struct {
 	bqClient     *bigquery.Client
+	filter       string
+	salt         string
 	toolType     commontype.ToolType
 	project      string
 	dataset      string
@@ -76,41 +81,23 @@ type runQueryResult struct {
 }
 
 func runQuery(ctx context.Context, args runQueryArgs) (runQueryResult, error) {
-	filter, ok := ctx.Value(commonctx.FilterCtxKey).(string)
-	if !ok {
-		return runQueryResult{}, errors.New("unable to get filter from context")
-	}
+	queryPrefix := fmt.Sprintf(`
+	with hashed_filter as (
+		select
+			*,
+			to_base64(sha256(concat(%s, "%s"))) hashed_%s
+		from
+	`, args.filter, args.salt, args.filter)
 
-	salt, ok := ctx.Value(commonctx.SaltCtxKey).(string)
-	if !ok {
-		return runQueryResult{}, errors.New("unable to get salt from context")
-	}
-
-	var queryPrefix string
 	switch args.toolType {
 	case commontype.TableToolType:
-		queryPrefix = fmt.Sprintf(`
-		with hashed_filter as (
-			select
-				*,
-				to_base64(sha256(concat(%s, "%s"))) hashed_%s
-			from %s
-		)
-		`,
-			filter, salt, filter, fmt.Sprintf("%s.%s.%s",
-				args.project,
-				args.dataset,
-				args.tableName))
+		queryPrefix += fmt.Sprintf(" %s.%s.%s\n)\n",
+			args.project,
+			args.dataset,
+			args.tableName)
 	case commontype.QueryToolType:
-		queryPrefix = fmt.Sprintf(`
-		with hashed_filter as (
-			select
-				*,
-				to_base64(sha256(concat(%s, "%s"))) hashed_%s
-			from (%s)
-		)
-		`,
-			filter, salt, filter, args.builderQuery)
+		queryPrefix += fmt.Sprintf(" (%s)\n)\n",
+			args.builderQuery)
 	}
 
 	job, err := args.bqClient.Query(queryPrefix + args.query).
