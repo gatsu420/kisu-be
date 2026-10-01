@@ -111,7 +111,7 @@ func (r *repositoryImpl) ValidateToolQuery(ctx context.Context, args ValidateToo
 	}, nil
 }
 
-type GetToolTableSchemaArgs struct {
+type GetToolTableMetadataArgs struct {
 	Type         commontype.ToolType
 	Project      string
 	Dataset      string
@@ -120,17 +120,17 @@ type GetToolTableSchemaArgs struct {
 	Token        *oauth2.Token
 }
 
-type GetToolTableSchemaResult struct {
-	Columns []GetToolTableSchemaColumn
+type GetToolTableMetadataResult struct {
+	Description string
+	Columns     []GetToolTableMetadataColumn
 }
-
-type GetToolTableSchemaColumn struct {
+type GetToolTableMetadataColumn struct {
 	Name        string
 	Type        string
 	Description string
 }
 
-func (r *repositoryImpl) GetToolTableSchema(ctx context.Context, args GetToolTableSchemaArgs) (GetToolTableSchemaResult, error) {
+func (r *repositoryImpl) GetToolTableMetadata(ctx context.Context, args GetToolTableMetadataArgs) (GetToolTableMetadataResult, error) {
 	googleAuthClient := r.googleAuth.Client(ctx,
 		googleauthadapter.ClientArgs{
 			Token: args.Token,
@@ -140,22 +140,29 @@ func (r *repositoryImpl) GetToolTableSchema(ctx context.Context, args GetToolTab
 		r.projectID,
 		option.WithHTTPClient(googleAuthClient.Client))
 	if err != nil {
-		return GetToolTableSchemaResult{}, fmt.Errorf("unable to create bigquery client: %w", err)
+		return GetToolTableMetadataResult{}, fmt.Errorf("unable to create bigquery client: %w", err)
 	}
 	defer bqClient.Close()
 
-	columns := []GetToolTableSchemaColumn{}
+	metadata, err := bqClient.DatasetInProject(args.Project, args.Dataset).
+		Table(args.TableName).
+		Metadata(ctx)
+	if err != nil {
+		return GetToolTableMetadataResult{}, fmt.Errorf("unable to get metadata: %w", err)
+	}
+
+	columns := []GetToolTableMetadataColumn{}
 	switch args.Type {
 	case commontype.TableToolType:
 		metadata, err := bqClient.DatasetInProject(args.Project, args.Dataset).
 			Table(args.TableName).
 			Metadata(ctx)
 		if err != nil {
-			return GetToolTableSchemaResult{}, fmt.Errorf("unable to get metadata: %w", err)
+			return GetToolTableMetadataResult{}, fmt.Errorf("unable to get metadata: %w", err)
 		}
 
 		for _, s := range metadata.Schema {
-			columns = append(columns, GetToolTableSchemaColumn{
+			columns = append(columns, GetToolTableMetadataColumn{
 				Name:        s.Name,
 				Type:        string(s.Type),
 				Description: s.Description,
@@ -169,11 +176,11 @@ func (r *repositoryImpl) GetToolTableSchema(ctx context.Context, args GetToolTab
 			token:    args.Token,
 		})
 		if err != nil {
-			return GetToolTableSchemaResult{}, err
+			return GetToolTableMetadataResult{}, err
 		}
 
 		for _, s := range result.schema {
-			columns = append(columns, GetToolTableSchemaColumn{
+			columns = append(columns, GetToolTableMetadataColumn{
 				Name:        s.name,
 				Type:        s.dataType,
 				Description: s.description,
@@ -181,8 +188,9 @@ func (r *repositoryImpl) GetToolTableSchema(ctx context.Context, args GetToolTab
 		}
 	}
 
-	return GetToolTableSchemaResult{
-		Columns: columns,
+	return GetToolTableMetadataResult{
+		Description: metadata.Description,
+		Columns:     columns,
 	}, nil
 }
 

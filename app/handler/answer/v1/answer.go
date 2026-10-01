@@ -295,31 +295,31 @@ func (h *handlerImpl) ValidateToolQuery(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-type GetToolTableSchemaResult struct {
-	Columns []GetToolTableSchemaColumn `json:"columns"`
+type GetToolTableMetadataResult struct {
+	Description string                       `json:"description"`
+	Columns     []GetToolTableMetadataColumn `json:"columns"`
 }
 
-type GetToolTableSchemaColumn struct {
+type GetToolTableMetadataColumn struct {
 	Name        string `json:"name"`
 	Type        string `json:"type"`
 	Description string `json:"description"`
 }
 
-func (h *handlerImpl) GetToolTableSchema(w http.ResponseWriter, r *http.Request) {
+func (h *handlerImpl) GetToolTableMetadata(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	var errMsg string
 	var statusCode int
 
-	result, err := h.metadataUsecase.GetToolTableSchema(r.Context(), metadata.GetToolTableSchemaArgs{
-		Type:         commontype.ToolType(r.URL.Query().Get("type")),
-		Project:      r.URL.Query().Get("project"),
-		Dataset:      r.URL.Query().Get("dataset"),
-		TableName:    r.URL.Query().Get("table_name"),
-		BuilderQuery: r.URL.Query().Get("builder_query"),
+	result, err := h.metadataUsecase.GetToolTableMetadata(r.Context(), metadata.GetToolTableMetadataArgs{
+		Type:      commontype.ToolType(r.URL.Query().Get("type")),
+		Project:   r.URL.Query().Get("project"),
+		Dataset:   r.URL.Query().Get("dataset"),
+		TableName: r.URL.Query().Get("table_name"),
 	})
 	if err != nil {
-		errMsg = "unable to get tool table schema"
+		errMsg = "unable to get tool table metadata"
 		statusCode = http.StatusInternalServerError
 		slog.Error(errMsg,
 			slog.Int(commonerr.StatusCodeLogKey, statusCode),
@@ -328,17 +328,18 @@ func (h *handlerImpl) GetToolTableSchema(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	columns := []GetToolTableSchemaColumn{}
+	columns := []GetToolTableMetadataColumn{}
 	for _, c := range result.Columns {
-		columns = append(columns, GetToolTableSchemaColumn{
+		columns = append(columns, GetToolTableMetadataColumn{
 			Name:        c.Name,
 			Type:        c.Type,
 			Description: c.Description,
 		})
 	}
 
-	err = json.NewEncoder(w).Encode(GetToolTableSchemaResult{
-		Columns: columns,
+	err = json.NewEncoder(w).Encode(GetToolTableMetadataResult{
+		Description: result.Description,
+		Columns:     columns,
 	})
 	if err != nil {
 		errMsg = "unable to write response"
