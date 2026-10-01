@@ -93,7 +93,7 @@ func createServer(ctx context.Context, config commonconfig.Config) (*http.Server
 	if err != nil {
 		return nil, fmt.Errorf("unable to create postgres connection pool: %w", err)
 	}
-	pgRepo := pgrepo.NewRepository(pgPool)
+	pgRepo := pgrepo.NewRepository(config.ProjectID, pgPool)
 
 	genaiClient, err := genai.NewClient(ctx, &genai.ClientConfig{
 		APIKey: config.GeminiApiKey,

@@ -313,10 +313,11 @@ func (h *handlerImpl) GetToolTableMetadata(w http.ResponseWriter, r *http.Reques
 	var statusCode int
 
 	result, err := h.metadataUsecase.GetToolTableMetadata(r.Context(), metadata.GetToolTableMetadataArgs{
-		Type:      commontype.ToolType(r.URL.Query().Get("type")),
-		Project:   r.URL.Query().Get("project"),
-		Dataset:   r.URL.Query().Get("dataset"),
-		TableName: r.URL.Query().Get("table_name"),
+		Type:         commontype.ToolType(r.URL.Query().Get("type")),
+		Project:      r.URL.Query().Get("project"),
+		Dataset:      r.URL.Query().Get("dataset"),
+		TableName:    r.URL.Query().Get("table_name"),
+		BuilderQuery: r.URL.Query().Get("builder_query"),
 	})
 	if err != nil {
 		errMsg = "unable to get tool table metadata"

@@ -132,6 +132,12 @@ func (u *usecaseImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 		return errors.New("invalid type value")
 	}
 
+	if args.Type == commontype.TableToolType {
+		if args.Project == "" || args.Dataset == "" || args.TableName == "" {
+			return errors.New("table tool requires all location components to be supplied")
+		}
+	}
+
 	if args.Type == commontype.QueryToolType {
 		if len(args.Examples) > 1 {
 			return errors.New("query tool requires just one example")
@@ -280,18 +286,23 @@ func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallTool
 		return CallToolResult{}, errors.New("unable to get salt from context")
 	}
 
-	tableLocationParts := strings.Split(args.TableLocation, ".")
-	if len(tableLocationParts) != 3 {
-		return CallToolResult{}, errors.New("table location must be in the form of \"project.dataset.table_name\"")
+	var project, dataset, tableName string
+	if args.Type == commontype.TableToolType {
+		locationParts := strings.Split(args.TableLocation, ".")
+		if len(locationParts) != 3 {
+			return CallToolResult{}, errors.New("table location for table tool must be in the form of \"project.dataset.table_name\"")
+		}
+
+		project, dataset, tableName = locationParts[0], locationParts[1], locationParts[2]
 	}
 
 	result, err := u.bqRepo.CallTool(ctx, bqrepo.CallToolArgs{
 		Filter:       filter,
 		Salt:         salt,
 		Type:         args.Type,
-		Project:      tableLocationParts[0],
-		Dataset:      tableLocationParts[1],
-		TableName:    tableLocationParts[2],
+		Project:      project,
+		Dataset:      dataset,
+		TableName:    tableName,
 		BuilderQuery: args.BuilderQuery,
 		Query:        args.Query,
 		Token:        args.Token,

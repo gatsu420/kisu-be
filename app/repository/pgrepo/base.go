@@ -17,11 +17,13 @@ type Repository interface {
 }
 
 type repositoryImpl struct {
-	pool *pgxpool.Pool
+	projectID string
+	pool      *pgxpool.Pool
 }
 
-func NewRepository(pool *pgxpool.Pool) Repository {
+func NewRepository(projectID string, pool *pgxpool.Pool) Repository {
 	return &repositoryImpl{
-		pool: pool,
+		projectID: projectID,
+		pool:      pool,
 	}
 }

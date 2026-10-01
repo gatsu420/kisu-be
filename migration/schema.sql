@@ -1,6 +1,6 @@
 \restrict dbmate
 
--- Dumped from database version 17.11 (8a81ecb)
+-- Dumped from database version 17.11 (fcae950)
 -- Dumped by pg_dump version 17.10
 
 SET statement_timeout = 0;
@@ -50,14 +50,14 @@ CREATE TABLE public.tool (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
     tool_description text NOT NULL,
-    table_name text NOT NULL,
+    table_name text,
     columns jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
     param_name text DEFAULT ''::text NOT NULL,
     type text DEFAULT ''::text NOT NULL,
     project text DEFAULT ''::text NOT NULL,
-    dataset text DEFAULT ''::text NOT NULL
+    dataset text DEFAULT ''::text
 );
 
 
@@ -187,4 +187,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260921044553'),
     ('20260925121455'),
     ('20260925134308'),
-    ('20260926044424');
+    ('20260926044424'),
+    ('20261001094943');

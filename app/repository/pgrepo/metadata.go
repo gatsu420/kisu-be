@@ -161,15 +161,36 @@ func (r *repositoryImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 	}
 	defer tx.Rollback(ctx)
 
+	var query string
+	queryArgs := []any{}
+	switch args.Type {
+	case commontype.TableToolType:
+		query = `
+			insert into tool (
+				user_id, tool_description, project, dataset, table_name,
+				columns, type, param_name
+			) values ($1, $2, $3, $4, $5, $6, $7, $8)
+			returning id
+		`
+		queryArgs = append(queryArgs,
+			args.UserID, args.ToolDescription, args.Project, args.Dataset, args.TableName,
+			args.Columns, args.Type, args.ParamName)
+
+	case commontype.QueryToolType:
+		query = `
+			insert into tool (
+				user_id, tool_description, project,
+				columns, type, param_name
+			) values ($1, $2, $3, $4, $5, $6)
+			returning id
+		`
+		queryArgs = append(queryArgs,
+			args.UserID, args.ToolDescription, r.projectID,
+			args.Columns, args.Type, args.ParamName)
+	}
+
 	var toolID string
-	err = tx.QueryRow(ctx, `
-		insert into tool (
-			user_id, tool_description, project, dataset, table_name,
-			columns, type, param_name
-		) values ($1, $2, $3, $4, $5, $6, $7, $8)
-		returning id
-	`, args.UserID, args.ToolDescription, args.Project, args.Dataset, args.TableName,
-		args.Columns, args.Type, args.ParamName).
+	err = tx.QueryRow(ctx, query, queryArgs...).
 		Scan(&toolID)
 	if err != nil {
 		return fmt.Errorf("unable to insert to tool while in transaction: %w", err)
