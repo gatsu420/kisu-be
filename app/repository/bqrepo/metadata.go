@@ -58,43 +58,17 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 			args.BuilderQuery)
 	}
 
-	job, err := bqClient.Query(queryPrefix + args.Query).
-		Run(ctx)
+	result, err := runQueryWithRows(ctx, runQueryWithRowsArgs{
+		bqClient: bqClient,
+		query:    queryPrefix + args.Query,
+		token:    args.Token,
+	})
 	if err != nil {
-		return CallToolResult{}, fmt.Errorf("unable to run select job from hashed filter view: %w", err)
-	}
-
-	jobStatus, err := job.Wait(ctx)
-	if err != nil {
-		return CallToolResult{}, fmt.Errorf("select job has failed: %w", err)
-	}
-
-	if jobStatus.Err() != nil {
-		return CallToolResult{}, fmt.Errorf("select job has error: %w", jobStatus.Err())
-	}
-
-	resultRows, err := job.Read(ctx)
-	if err != nil {
-		return CallToolResult{}, fmt.Errorf("unable to get result of select job: %w", err)
-	}
-
-	rows := []map[string]bigquery.Value{}
-	for {
-		var row map[string]bigquery.Value
-		err := resultRows.Next(&row)
-		if err == iterator.Done {
-			break
-		}
-
-		if err != nil {
-			return CallToolResult{}, fmt.Errorf("row doesn't conform to row map: %w", err)
-		}
-
-		rows = append(rows, row)
+		return CallToolResult{}, err
 	}
 
 	return CallToolResult{
-		Rows: rows,
+		Rows: result.rows,
 	}, nil
 }
 
@@ -134,5 +108,148 @@ func (r *repositoryImpl) ValidateToolQuery(ctx context.Context, args ValidateToo
 
 	return ValidateToolQueryResult{
 		IsValid: true,
+	}, nil
+}
+
+type GetToolTableSchemaArgs struct {
+	Type         commontype.ToolType
+	Project      string
+	Dataset      string
+	TableName    string
+	BuilderQuery string
+	Token        *oauth2.Token
+}
+
+type GetToolTableSchemaResult struct {
+	Columns []GetToolTableSchemaColumn
+}
+
+type GetToolTableSchemaColumn struct {
+	Name        string
+	Type        string
+	Description string
+}
+
+func (r *repositoryImpl) GetToolTableSchema(ctx context.Context, args GetToolTableSchemaArgs) (GetToolTableSchemaResult, error) {
+	googleAuthClient := r.googleAuth.Client(ctx,
+		googleauthadapter.ClientArgs{
+			Token: args.Token,
+		})
+
+	bqClient, err := bigquery.NewClient(ctx,
+		r.projectID,
+		option.WithHTTPClient(googleAuthClient.Client))
+	if err != nil {
+		return GetToolTableSchemaResult{}, fmt.Errorf("unable to create bigquery client: %w", err)
+	}
+	defer bqClient.Close()
+
+	columns := []GetToolTableSchemaColumn{}
+	switch args.Type {
+	case commontype.TableToolType:
+		metadata, err := bqClient.DatasetInProject(args.Project, args.Dataset).
+			Table(args.TableName).
+			Metadata(ctx)
+		if err != nil {
+			return GetToolTableSchemaResult{}, fmt.Errorf("unable to get metadata: %w", err)
+		}
+
+		for _, s := range metadata.Schema {
+			columns = append(columns, GetToolTableSchemaColumn{
+				Name:        s.Name,
+				Type:        string(s.Type),
+				Description: s.Description,
+			})
+		}
+
+	case commontype.QueryToolType:
+		result, err := runQueryWithRows(ctx, runQueryWithRowsArgs{
+			bqClient: bqClient,
+			query:    args.BuilderQuery,
+			token:    args.Token,
+		})
+		if err != nil {
+			return GetToolTableSchemaResult{}, err
+		}
+
+		for _, s := range result.schema {
+			columns = append(columns, GetToolTableSchemaColumn{
+				Name:        s.name,
+				Type:        s.dataType,
+				Description: s.description,
+			})
+		}
+	}
+
+	return GetToolTableSchemaResult{
+		Columns: columns,
+	}, nil
+}
+
+type runQueryWithRowsArgs struct {
+	bqClient *bigquery.Client
+	query    string
+	token    *oauth2.Token
+}
+
+type runQueryWithRowsResult struct {
+	rows   []map[string]bigquery.Value
+	schema []runQueryWithRowsSchema
+}
+
+type runQueryWithRowsSchema struct {
+	name        string
+	dataType    string
+	description string
+}
+
+func runQueryWithRows(ctx context.Context, args runQueryWithRowsArgs) (runQueryWithRowsResult, error) {
+	job, err := args.bqClient.Query(args.query).
+		Run(ctx)
+	if err != nil {
+		return runQueryWithRowsResult{}, fmt.Errorf("unable to run select job from hashed filter view: %w", err)
+	}
+
+	jobStatus, err := job.Wait(ctx)
+	if err != nil {
+		return runQueryWithRowsResult{}, fmt.Errorf("select job has failed: %w", err)
+	}
+
+	if jobStatus.Err() != nil {
+		return runQueryWithRowsResult{}, fmt.Errorf("select job has error: %w", jobStatus.Err())
+	}
+
+	resultRows, err := job.Read(ctx)
+	if err != nil {
+		return runQueryWithRowsResult{}, fmt.Errorf("unable to get result of select job: %w", err)
+	}
+
+	rows := []map[string]bigquery.Value{}
+	for {
+		var row map[string]bigquery.Value
+		err := resultRows.Next(&row)
+		if err == iterator.Done {
+			break
+		}
+
+		if err != nil {
+			return runQueryWithRowsResult{}, fmt.Errorf("row doesn't conform to row map: %w", err)
+		}
+
+		rows = append(rows, row)
+	}
+
+	schema := []runQueryWithRowsSchema{}
+	for _, s := range resultRows.Schema {
+		schema = append(schema, runQueryWithRowsSchema{
+			name:        s.Name,
+			dataType:    string(s.Type),
+			description: s.Description,
+		})
+	}
+
+	return runQueryWithRowsResult{
+		rows:   rows,
+		schema: schema,
 	}, nil
 }

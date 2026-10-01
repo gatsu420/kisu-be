@@ -336,3 +336,53 @@ func (u *usecaseImpl) ValidateToolQuery(ctx context.Context, args ValidateToolQu
 		IsValid: result.IsValid,
 	}, nil
 }
+
+type GetToolTableSchemaArgs struct {
+	Type         commontype.ToolType
+	Project      string
+	Dataset      string
+	TableName    string
+	BuilderQuery string
+}
+
+type GetToolTableSchemaResult struct {
+	Columns []GetToolTableSchemaColumn
+}
+
+type GetToolTableSchemaColumn struct {
+	Name        string
+	Type        string
+	Description string
+}
+
+func (u *usecaseImpl) GetToolTableSchema(ctx context.Context, args GetToolTableSchemaArgs) (GetToolTableSchemaResult, error) {
+	token, ok := ctx.Value(commonctx.TokenCtxKey).(*oauth2.Token)
+	if !ok {
+		return GetToolTableSchemaResult{}, errors.New("unable to get token from context")
+	}
+
+	result, err := u.bqRepo.GetToolTableSchema(ctx, bqrepo.GetToolTableSchemaArgs{
+		Type:         args.Type,
+		Project:      args.Project,
+		Dataset:      args.Dataset,
+		TableName:    args.TableName,
+		BuilderQuery: args.BuilderQuery,
+		Token:        token,
+	})
+	if err != nil {
+		return GetToolTableSchemaResult{}, err
+	}
+
+	columns := []GetToolTableSchemaColumn{}
+	for _, c := range result.Columns {
+		columns = append(columns, GetToolTableSchemaColumn{
+			Name:        c.Name,
+			Type:        c.Type,
+			Description: c.Description,
+		})
+	}
+
+	return GetToolTableSchemaResult{
+		Columns: columns,
+	}, nil
+}

@@ -9,6 +9,7 @@ import (
 type Repository interface {
 	CallTool(ctx context.Context, args CallToolArgs) (CallToolResult, error)
 	ValidateToolQuery(ctx context.Context, args ValidateToolQueryArgs) (ValidateToolQueryResult, error)
+	GetToolTableSchema(ctx context.Context, args GetToolTableSchemaArgs) (GetToolTableSchemaResult, error)
 }
 
 type repositoryImpl struct {
