@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"github.com/gatsu420/kisu-be/app/repository/bqrepo"
 	"github.com/gatsu420/kisu-be/app/repository/pgrepo"
@@ -279,14 +280,21 @@ func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallTool
 		return CallToolResult{}, errors.New("unable to get salt from context")
 	}
 
+	tableLocationParts := strings.Split(args.TableLocation, ".")
+	if len(tableLocationParts) != 3 {
+		return CallToolResult{}, errors.New("table location must be in the form of \"project.dataset.table_name\"")
+	}
+
 	result, err := u.bqRepo.CallTool(ctx, bqrepo.CallToolArgs{
-		Filter:        filter,
-		Salt:          salt,
-		Type:          args.Type,
-		TableLocation: args.TableLocation,
-		BuilderQuery:  args.BuilderQuery,
-		Query:         args.Query,
-		Token:         args.Token,
+		Filter:       filter,
+		Salt:         salt,
+		Type:         args.Type,
+		Project:      tableLocationParts[0],
+		Dataset:      tableLocationParts[1],
+		TableName:    tableLocationParts[2],
+		BuilderQuery: args.BuilderQuery,
+		Query:        args.Query,
+		Token:        args.Token,
 	})
 	if err != nil {
 		return CallToolResult{}, err
