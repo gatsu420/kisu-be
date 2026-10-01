@@ -53,6 +53,62 @@ export async function validateToolQuery(query: string): Promise<boolean> {
   return (data as { is_valid: boolean }).is_valid;
 }
 
+interface ToolTableMetadataArgs {
+  type: ToolType;
+  project: string;
+  dataset: string;
+  table_name: string;
+  builder_query: string;
+}
+
+interface ToolTableMetadata {
+  description: string;
+  columns: ToolColumn[];
+}
+
+export async function fetchToolTableMetadata(
+  args: ToolTableMetadataArgs,
+): Promise<ToolTableMetadata> {
+  const url = new URL(
+    "/answer/v1/get-tool-table-metadata",
+    window.location.origin,
+  );
+  url.searchParams.set("type", args.type);
+  url.searchParams.set("project", args.project);
+  url.searchParams.set("dataset", args.dataset);
+  url.searchParams.set("table_name", args.table_name);
+  url.searchParams.set("builder_query", args.builder_query);
+
+  const res = await fetch(url.toString(), {
+    method: "GET",
+    credentials: "include",
+  });
+
+  if (res.status === 401) {
+    throw new Error("unauthorized");
+  }
+
+  if (!res.ok) {
+    throw new Error("metadata request failed");
+  }
+
+  const data: unknown = await res.json();
+  if (typeof data !== "object" || data === null || !("columns" in data)) {
+    throw new Error("metadata response is invalid");
+  }
+  const { columns, description } = data as {
+    columns?: unknown;
+    description?: unknown;
+  };
+  if (!Array.isArray(columns)) {
+    throw new Error("metadata response is invalid");
+  }
+  return {
+    description: typeof description === "string" ? description : "",
+    columns: columns as ToolColumn[],
+  };
+}
+
 export type ToolType = "table" | "query";
 
 // Legacy rows may have an empty type. Treat them as table tools.
@@ -60,7 +116,7 @@ export function toolTypeOf(tool: Tool): ToolType {
   return tool.type === "query" ? "query" : "table";
 }
 
-export interface AddToolPayload {
+interface AddToolPayload {
   tool_description: string;
   project: string;
   dataset: string;
@@ -94,13 +150,13 @@ export async function addTool(payload: AddToolPayload): Promise<string> {
   return res.text();
 }
 
-export interface ToolColumn {
+interface ToolColumn {
   name: string;
   type: string;
   description: string;
 }
 
-export interface ToolQueryExamples {
+interface ToolQueryExamples {
   description: string;
   query: string;
 }

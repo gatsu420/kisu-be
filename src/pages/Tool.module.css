@@ -124,6 +124,30 @@
   gap: 0.5rem;
 }
 
+.fillRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fillRow .actionBtn {
+  align-self: center;
+}
+
+.fillBtn {
+  /* Fits "Autofilling..." and keeps the width constant. */
+  width: 6.5rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.fillBtnWide {
+  /* Fits "Autofill description and columns" with a constant width. */
+  width: 15rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
 .sectionHeader {
   font-size: 1rem;
   font-weight: 600;
@@ -285,21 +309,29 @@
 
 /* ===== Buttons ===== */
 
-.addBtn {
+/* Shared style for Autofill, Add Column, Add Example and Verify buttons. */
+.actionBtn {
+  /* Keep the button narrow inside column-style sections. */
   align-self: flex-start;
   padding: 0.4rem 0.75rem;
   font-size: 0.8125rem;
   font-weight: 500;
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
+  text-align: center;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
   border-radius: 6px;
   cursor: pointer;
-  color: #374151;
+  color: #4338ca;
   transition: background 0.15s;
 }
 
-.addBtn:hover {
-  background: #e5e7eb;
+.actionBtn:hover:not(:disabled) {
+  background: #e0e7ff;
+}
+
+.actionBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .removeBtn {
@@ -355,31 +387,13 @@
 .verifyRow {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.75rem;
 }
 
 .verifyBtn {
   /* Fixed width so "Verify" and "Verifying..." match. */
-  width: 6.5rem;
-  text-align: center;
-  padding: 0.3rem 0.7rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  background: #eef2ff;
-  border: 1px solid #c7d2fe;
-  border-radius: 6px;
-  cursor: pointer;
-  color: #4338ca;
-  transition: background 0.15s;
-}
-
-.verifyBtn:hover:not(:disabled) {
-  background: #e0e7ff;
-}
-
-.verifyBtn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+  width: 6rem;
 }
 
 .verifyStatus {
@@ -392,11 +406,6 @@
 
 .verifyOk {
   color: #16a34a;
-  font-weight: 600;
-}
-
-.verifyBad {
-  color: #dc2626;
   font-weight: 600;
 }
 

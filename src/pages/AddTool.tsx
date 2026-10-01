@@ -1,6 +1,11 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { addTool, validateToolQuery, type ToolType } from "../lib/api";
+import {
+  addTool,
+  fetchToolTableMetadata,
+  validateToolQuery,
+  type ToolType,
+} from "../lib/api";
 import Header from "../components/Header";
 import styles from "./Tool.module.css";
 
@@ -36,10 +41,13 @@ export default function AddTool() {
   const [error, setError] = useState<string | null>(null);
   // Index of the column checked as Param. Its name becomes param_name.
   const [paramIndex, setParamIndex] = useState<number | null>(null);
+  const [filling, setFilling] = useState(false);
+  const [fillError, setFillError] = useState<string | null>(null);
 
   const changeMode = (next: ToolType) => {
     setSuccess(false);
     setError(null);
+    setFillError(null);
     if (next === "query") {
       // Query mode allows only one query.
       setFormData((prev) => ({ ...prev, query: prev.query.slice(0, 1) }));
@@ -94,6 +102,60 @@ export default function AddTool() {
     setParamIndex(checked ? index : null);
   };
 
+  // Ask the backend for table metadata and auto fill the column rows.
+  const autoFillColumns = async () => {
+    if (filling) return;
+    setFillError(null);
+    // Fail early when the needed form fields are empty.
+    const missing =
+      mode === "table"
+        ? !formData.project.trim() ||
+          !formData.dataset.trim() ||
+          !formData.table_name.trim()
+        : !(formData.query[0]?.query ?? "").trim();
+    if (missing) {
+      setFillError(
+        mode === "table"
+          ? "Please complete the project, dataset, and table name forms"
+          : "Please complete the query form",
+      );
+      return;
+    }
+    setFilling(true);
+    try {
+      const { description, columns } = await fetchToolTableMetadata({
+        type: mode,
+        project: formData.project.trim(),
+        dataset: formData.dataset.trim(),
+        table_name: formData.table_name.trim(),
+        builder_query: formData.query[0]?.query ?? "",
+      });
+      if (columns.length === 0) {
+        setFillError("No columns found");
+        return;
+      }
+      setFormData((prev) => ({
+        ...prev,
+        columns,
+        // Table tool takes its description from the backend.
+        tool_description:
+          mode === "table" && description
+            ? description
+            : prev.tool_description,
+      }));
+      // Old param index no longer matches the new rows.
+      setParamIndex(null);
+    } catch (e) {
+      if (e instanceof Error && e.message === "unauthorized") {
+        navigate("/login");
+        return;
+      }
+      setFillError("Failed to autofill columns");
+    } finally {
+      setFilling(false);
+    }
+  };
+
   const handleQueryChange = (
     index: number,
     field: keyof Query,
@@ -101,8 +163,8 @@ export default function AddTool() {
   ) => {
     const newQuery = [...formData.query];
     newQuery[index] = { ...newQuery[index], [field]: value };
-    // Query text changed, so the old verification no longer counts.
-    if (field === "query") {
+    // Description or query changed, so the old verification no longer counts.
+    if (field === "query" || field === "description") {
       newQuery[index].status = "unverified";
       newQuery[index].message = undefined;
     }
@@ -191,8 +253,20 @@ export default function AddTool() {
 
   const verifyQuery = async (index: number) => {
     const text = formData.query[index].query;
-    if (!text.trim()) {
-      setQueryStatus(index, text, "unverified", "Query is empty");
+    // Table example needs both description and query.
+    const missing =
+      mode === "table"
+        ? !formData.query[index].description.trim() || !text.trim()
+        : !text.trim();
+    if (missing) {
+      setQueryStatus(
+        index,
+        text,
+        "unverified",
+        mode === "table"
+          ? "Please complete the description and query forms in this example"
+          : "Please complete the query form",
+      );
       return;
     }
 
@@ -226,26 +300,31 @@ export default function AddTool() {
           : status === "invalid"
             ? "Invalid query"
             : null);
-    const tone =
-      status === "valid"
-        ? styles.verifyOk
-        : status === "invalid" || message
-          ? styles.verifyBad
-          : styles.verifyIdle;
+    // Errors share the same text style as the autofill errors.
+    const isError = status === "invalid" || !!message;
+    const textClass = isError
+      ? styles.error
+      : `${styles.verifyStatus} ${
+          status === "valid" ? styles.verifyOk : styles.verifyIdle
+        }`;
+
+    const verifyBtn = (
+      <button
+        type="button"
+        className={`${styles.actionBtn} ${styles.verifyBtn}`}
+        onClick={() => verifyQuery(index)}
+        disabled={status === "checking"}
+      >
+        {status === "checking" ? "Verifying..." : "Verify"}
+      </button>
+    );
+    const verifyMsg =
+      text !== null ? <span className={textClass}>{text}</span> : null;
 
     return (
       <div className={styles.verifyRow}>
-        <button
-          type="button"
-          className={styles.verifyBtn}
-          onClick={() => verifyQuery(index)}
-          disabled={status === "checking"}
-        >
-          {status === "checking" ? "Verifying..." : "Verify"}
-        </button>
-        {text !== null && (
-          <span className={`${styles.verifyStatus} ${tone}`}>{text}</span>
-        )}
+        {verifyBtn}
+        {verifyMsg}
       </div>
     );
   };
@@ -261,8 +340,8 @@ export default function AddTool() {
       paramIndex !== null ? formData.columns[paramIndex] : undefined;
     if (
       !formData.tool_description.trim() ||
-      !formData.project.trim() ||
-      !formData.dataset.trim() ||
+      (mode === "table" &&
+        (!formData.project.trim() || !formData.dataset.trim())) ||
       missingTableName ||
       !paramColumn ||
       !paramColumn.name.trim()
@@ -280,8 +359,9 @@ export default function AddTool() {
     try {
       await addTool({
         tool_description: formData.tool_description,
-        project: formData.project,
-        dataset: formData.dataset,
+        // Query tools have no location. Backend fills it later.
+        project: mode === "table" ? formData.project : "",
+        dataset: mode === "table" ? formData.dataset : "",
         table_name: mode === "table" ? formData.table_name : "",
         columns: formData.columns,
         type: mode,
@@ -305,6 +385,7 @@ export default function AddTool() {
         query: [{ description: "", query: "", status: "unverified" }],
       });
       setParamIndex(null);
+      setFillError(null);
     } catch (e) {
       if (e instanceof Error && e.message === "unauthorized") {
         navigate("/login");
@@ -390,7 +471,7 @@ export default function AddTool() {
         </>
       )}
       {mode === "table" && (
-        <button type="button" className={styles.addBtn} onClick={addQuery}>
+        <button type="button" className={styles.actionBtn} onClick={addQuery}>
           + Add Example
         </button>
       )}
@@ -400,6 +481,19 @@ export default function AddTool() {
   const columnsForm = (
     <div className={styles.section}>
       <p className={styles.sectionHeader}>Columns</p>
+      {mode === "query" && (
+        <div className={styles.fillRow}>
+          <button
+            type="button"
+            className={`${styles.actionBtn} ${styles.fillBtn}`}
+            onClick={autoFillColumns}
+            disabled={filling}
+          >
+            {filling ? "Autofilling..." : "Autofill"}
+          </button>
+          {fillError && <span className={styles.error}>{fillError}</span>}
+        </div>
+      )}
       <div className={styles.greyCardList}>
         {formData.columns.map((col, index) => (
           <div key={index} className={styles.greyCard}>
@@ -465,9 +559,32 @@ export default function AddTool() {
           </div>
         ))}
       </div>
-      <button type="button" className={styles.addBtn} onClick={addColumn}>
+      <button type="button" className={styles.actionBtn} onClick={addColumn}>
         + Add Column
       </button>
+    </div>
+  );
+
+  const descriptionForm = (
+    <div className={styles.section}>
+      <p className={styles.sectionHeader}>Description</p>
+      <div className={styles.formGroup}>
+        <textarea
+          className={styles.textarea}
+          placeholder="Describe what this tool does..."
+          value={formData.tool_description}
+          onChange={(e) => handleInputChange(e, "tool_description")}
+          onKeyDown={(e) =>
+            handleTabKey(e, formData.tool_description, (next) =>
+              setFormData((prev) => ({
+                ...prev,
+                tool_description: next,
+              })),
+            )
+          }
+          rows={3}
+        />
+      </div>
     </div>
   );
 
@@ -515,53 +632,31 @@ export default function AddTool() {
           </div>
 
           <form onSubmit={handleSubmit} className={styles.form}>
-            {/* Description */}
-            <div className={styles.section}>
-              <p className={styles.sectionHeader}>Description</p>
-              <div className={styles.formGroup}>
-                <textarea
-                  className={styles.textarea}
-                  placeholder="Describe what this tool does..."
-                  value={formData.tool_description}
-                  onChange={(e) => handleInputChange(e, "tool_description")}
-                  onKeyDown={(e) =>
-                    handleTabKey(e, formData.tool_description, (next) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        tool_description: next,
-                      })),
-                    )
-                  }
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            {/* Location */}
-            <div className={styles.section}>
-              <p className={styles.sectionHeader}>Location</p>
-              <div className={styles.formRow}>
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>Project</label>
-                  <input
-                    className={styles.input}
-                    type="text"
-                    placeholder="e.g. my-project"
-                    value={formData.project}
-                    onChange={(e) => handleInputChange(e, "project")}
-                  />
-                </div>
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>Dataset</label>
-                  <input
-                    className={styles.input}
-                    type="text"
-                    placeholder="e.g. my_dataset"
-                    value={formData.dataset}
-                    onChange={(e) => handleInputChange(e, "dataset")}
-                  />
-                </div>
-                {mode === "table" && (
+            {/* Location: table tools only */}
+            {mode === "table" && (
+              <div className={styles.section}>
+                <p className={styles.sectionHeader}>Location</p>
+                <div className={styles.formRow}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Project</label>
+                    <input
+                      className={styles.input}
+                      type="text"
+                      placeholder="e.g. my-project"
+                      value={formData.project}
+                      onChange={(e) => handleInputChange(e, "project")}
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Dataset</label>
+                    <input
+                      className={styles.input}
+                      type="text"
+                      placeholder="e.g. my_dataset"
+                      value={formData.dataset}
+                      onChange={(e) => handleInputChange(e, "dataset")}
+                    />
+                  </div>
                   <div className={styles.formGroup}>
                     <label className={styles.label}>Table Name</label>
                     <input
@@ -572,13 +667,39 @@ export default function AddTool() {
                       onChange={(e) => handleInputChange(e, "table_name")}
                     />
                   </div>
-                )}
+                </div>
+                <div className={styles.fillRow}>
+                  <button
+                    type="button"
+                    className={`${styles.actionBtn} ${styles.fillBtnWide}`}
+                    onClick={autoFillColumns}
+                    disabled={filling}
+                  >
+                    {filling
+                      ? "Autofilling..."
+                      : "Autofill description and columns"}
+                  </button>
+                  {fillError && (
+                    <span className={styles.error}>{fillError}</span>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Table: Columns then Example. Query: Example then Columns. */}
-            {mode === "table" ? columnsForm : queryForm}
-            {mode === "table" ? queryForm : columnsForm}
+            {/* Table: Description, Columns, Examples. Query: Query, Description, Columns. */}
+            {mode === "table" ? (
+              <>
+                {descriptionForm}
+                {columnsForm}
+                {queryForm}
+              </>
+            ) : (
+              <>
+                {queryForm}
+                {descriptionForm}
+                {columnsForm}
+              </>
+            )}
 
             {/* Submit */}
             <div className={styles.submitRow}>

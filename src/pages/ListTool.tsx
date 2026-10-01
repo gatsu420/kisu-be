@@ -105,27 +105,26 @@ interface ToolCardProps {
 function ToolCard({ tool }: ToolCardProps) {
   const type = toolTypeOf(tool);
 
-  const locationSection = (
-    <div>
-      <p className={styles.sectionTitle}>Location</p>
-      <div className={styles.locationList}>
-        <p className={styles.locationRow}>
-          <span className={styles.locationLabel}>Project</span>
-          <span className={styles.locationValue}>{tool.project}</span>
-        </p>
-        <p className={styles.locationRow}>
-          <span className={styles.locationLabel}>Dataset</span>
-          <span className={styles.locationValue}>{tool.dataset}</span>
-        </p>
-        {type === "table" && (
+  const locationSection =
+    type === "table" ? (
+      <div>
+        <p className={styles.sectionTitle}>Location</p>
+        <div className={styles.locationList}>
+          <p className={styles.locationRow}>
+            <span className={styles.locationLabel}>Project</span>
+            <span className={styles.locationValue}>{tool.project}</span>
+          </p>
+          <p className={styles.locationRow}>
+            <span className={styles.locationLabel}>Dataset</span>
+            <span className={styles.locationValue}>{tool.dataset}</span>
+          </p>
           <p className={styles.locationRow}>
             <span className={styles.locationLabel}>Table Name</span>
             <span className={styles.locationValue}>{tool.table_name}</span>
           </p>
-        )}
+        </div>
       </div>
-    </div>
-  );
+    ) : null;
 
   const columnsSection =
     tool.columns.length > 0 ? (
