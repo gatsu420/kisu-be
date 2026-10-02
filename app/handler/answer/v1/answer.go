@@ -80,7 +80,7 @@ type AddToolArgs struct {
 	Columns         []AddToolColumn     `json:"columns"`
 	Type            commontype.ToolType `json:"type"`
 	Examples        []AddToolExample    `json:"examples"`
-	ParamName       string              `json:"param_name"`
+	ParamNames      []string            `json:"param_names"`
 }
 
 type AddToolColumn struct {
@@ -147,7 +147,7 @@ func (h *handlerImpl) AddTool(w http.ResponseWriter, r *http.Request) {
 		Columns:         columns,
 		Type:            args.Type,
 		Examples:        examples,
-		ParamName:       args.ParamName,
+		ParamNames:      args.ParamNames,
 	})
 	if err != nil {
 		errMsg = "unable to add tool"
@@ -175,7 +175,7 @@ type GetToolRow struct {
 	Columns         []GetToolColumn     `json:"columns"`
 	Type            commontype.ToolType `json:"type"`
 	Examples        []GetToolExample    `json:"examples"`
-	ParamName       string              `json:"param_name"`
+	ParamNames      []string            `json:"param_names"`
 }
 
 type GetToolColumn struct {
@@ -244,7 +244,7 @@ func (h *handlerImpl) GetTool(w http.ResponseWriter, r *http.Request) {
 			Columns:         columns,
 			Type:            r.Type,
 			Examples:        examples,
-			ParamName:       r.ParamName,
+			ParamNames:      r.ParamNames,
 		})
 	}
 

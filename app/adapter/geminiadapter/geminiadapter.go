@@ -87,19 +87,24 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 		return GetContentResult{}, errors.New("unable to cast tool query to string")
 	}
 
-	toolParam, ok := tool.Args["hashed_"+paramName]
+	toolParamKey, ok := tool.Args["hashed_param"]
 	if !ok {
 		return GetContentResult{}, errors.New("there is no hashed param key inside tool args")
 	}
 
-	stringifiedToolParam, ok := toolParam.(string)
+	toolParam, ok := toolParamKey.(map[string]any)
 	if !ok {
-		return GetContentResult{}, errors.New("unable to cast tool param to string")
+		return GetContentResult{}, errors.New("unable to cast tool param key to map")
+	}
+
+	toolParamVal, ok := toolParam[paramName]
+	if !ok {
+		return GetContentResult{}, fmt.Errorf("there is no %s key inside tool param", paramName)
 	}
 
 	stringifiedToolQuery += fmt.Sprintf(" where %s in (%s)",
 		"hashed_"+paramName,
-		stringifiedToolParam)
+		toolParamVal)
 
 	toolResult, err := a.metadataUsecase.CallTool(ctx, metadata.CallToolArgs{
 		Type:          toolDeclarations.toolTypes[tool.Name],
@@ -147,6 +152,19 @@ func (a *adapterImpl) declareTool(ctx context.Context, args declareToolArgs) (de
 			return declareToolResult{}, errors.New("invalid tool type")
 		}
 
+		var toolName string
+		var tableLocation string
+		switch r.Type {
+		case commontype.TableToolType:
+			tableLocation = fmt.Sprintf("%s.%s.%s",
+				r.Project,
+				r.Dataset,
+				r.TableName)
+			toolName = tableLocation
+		case commontype.QueryToolType:
+			toolName = "t" + r.ID
+		}
+
 		columnItems := []string{}
 		columns := `
 		The CTE has these columns:
@@ -173,17 +191,6 @@ func (a *adapterImpl) declareTool(ctx context.Context, args declareToolArgs) (de
 		examples := `
 		Example query using the CTE:
 		`
-		var tableLocation string
-		switch r.Type {
-		case commontype.TableToolType:
-			tableLocation = fmt.Sprintf("%s.%s.%s",
-				r.Project,
-				r.Dataset,
-				r.TableName)
-		case commontype.QueryToolType:
-			tableLocation = r.TableName
-		}
-
 		if r.Type == commontype.TableToolType {
 			for _, e := range r.Examples {
 				exampleItems = append(exampleItems,
@@ -200,9 +207,22 @@ func (a *adapterImpl) declareTool(ctx context.Context, args declareToolArgs) (de
 			examples += strings.Join(exampleItems, "\n")
 		}
 
-		hashedParamName := "hashed_" + r.ParamName
+		hashedParamNames := make([]string, len(r.ParamNames))
+		hashedParamProp := make(map[string]*genai.Schema, len(r.ParamNames))
+		for i, pn := range r.ParamNames {
+			hashedParamNames[i] = "hashed_" + pn
+			hashedParamProp[pn] = &genai.Schema{
+				Type:        genai.TypeString,
+				Description: "Hashed param delimited by comma. Each element is surrounded by quote.",
+			}
+		}
+
+		// A tool may have multiple param, but we ask gemini to choose
+		// only one.
+		hashedParamMaxProp := int64(1)
+
 		declarations = append(declarations, &genai.FunctionDeclaration{
-			Name: tableLocation,
+			Name: toolName,
 			Description: fmt.Sprintf(`
 				Run SELECT-only query from hashed_param CTE to get
 				information about: %s.
@@ -215,21 +235,21 @@ func (a *adapterImpl) declareTool(ctx context.Context, args declareToolArgs) (de
 
 				The query should be without WHERE.
 				Do not SELECT %s.
-				Whatever the columns selected, also add %s.
 				`,
 				r.ToolDescription,
 				columns,
 				builderQuery,
 				examples,
-				hashedParamName,
-				r.ParamName),
+				strings.Join(hashedParamNames, ",")),
 
 			Parameters: &genai.Schema{
 				Type: genai.TypeObject,
 				Properties: map[string]*genai.Schema{
-					hashedParamName: {
-						Type:        genai.TypeString,
-						Description: "Hashed param delimited by comma. Each element is surrounded by quote.",
+					"hashed_param": {
+						Type:          genai.TypeObject,
+						Description:   "Key-value of hashed param name and its value",
+						Properties:    hashedParamProp,
+						MaxProperties: &hashedParamMaxProp,
 					},
 					"query": {
 						Type:        genai.TypeString,
@@ -240,7 +260,7 @@ func (a *adapterImpl) declareTool(ctx context.Context, args declareToolArgs) (de
 						Description: "Query that is used to build hashed_param CTE",
 					},
 				},
-				Required: []string{"hashed_" + r.ParamName, "query", "builder_query"},
+				Required: []string{"hashed_param", "query", "builder_query"},
 			},
 
 			Response: &genai.Schema{
@@ -249,7 +269,7 @@ func (a *adapterImpl) declareTool(ctx context.Context, args declareToolArgs) (de
 				Description: "List of information returned by query, 1 item represents 1 row",
 			},
 		})
-		toolTypes[tableLocation] = r.Type
+		toolTypes[toolName] = r.Type
 	}
 
 	return declareToolResult{

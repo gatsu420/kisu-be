@@ -113,7 +113,7 @@ type AddToolArgs struct {
 	Columns         []AddToolColumn
 	Type            commontype.ToolType
 	Examples        []AddToolExample
-	ParamName       string
+	ParamNames      []string
 }
 
 type AddToolColumn struct {
@@ -150,22 +150,13 @@ func (u *usecaseImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 		args.TableName = commoncrypto.GetRandomTableName()
 	}
 
-	var paramExistence bool
 	columns := []pgrepo.AddToolColumn{}
 	for _, c := range args.Columns {
-		if c.Name == args.ParamName {
-			paramExistence = true
-		}
-
 		columns = append(columns, pgrepo.AddToolColumn{
 			Name:        c.Name,
 			Type:        c.Type,
 			Description: c.Description,
 		})
-	}
-
-	if !paramExistence {
-		return errors.New("param doesnt match any column")
 	}
 
 	examples := []pgrepo.AddToolExample{}
@@ -185,7 +176,7 @@ func (u *usecaseImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 		Columns:         columns,
 		Type:            args.Type,
 		Examples:        examples,
-		ParamName:       args.ParamName,
+		ParamNames:      args.ParamNames,
 	})
 }
 
@@ -198,6 +189,7 @@ type GetToolResult struct {
 }
 
 type GetToolRow struct {
+	ID              string
 	ToolDescription string
 	Project         string
 	Dataset         string
@@ -205,7 +197,7 @@ type GetToolRow struct {
 	Columns         []GetToolColumn
 	Type            commontype.ToolType
 	Examples        []GetToolExample
-	ParamName       string
+	ParamNames      []string
 }
 
 type GetToolColumn struct {
@@ -229,6 +221,16 @@ func (u *usecaseImpl) GetTool(ctx context.Context, args GetToolArgs) (GetToolRes
 
 	resultRows := []GetToolRow{}
 	for _, r := range rows.Rows {
+		var dataset string
+		if r.Dataset != nil {
+			dataset = *r.Dataset
+		}
+
+		var tableName string
+		if r.TableName != nil {
+			tableName = *r.TableName
+		}
+
 		resultColumns := []GetToolColumn{}
 		for _, c := range r.Columns {
 			resultColumns = append(resultColumns, GetToolColumn{
@@ -247,14 +249,15 @@ func (u *usecaseImpl) GetTool(ctx context.Context, args GetToolArgs) (GetToolRes
 		}
 
 		resultRows = append(resultRows, GetToolRow{
+			ID:              r.ID,
 			ToolDescription: r.ToolDescription,
 			Project:         r.Project,
-			Dataset:         r.Dataset,
-			TableName:       r.TableName,
+			Dataset:         dataset,
+			TableName:       tableName,
 			Columns:         resultColumns,
 			Type:            r.Type,
 			Examples:        resultExamples,
-			ParamName:       r.ParamName,
+			ParamNames:      r.ParamNames,
 		})
 	}
 

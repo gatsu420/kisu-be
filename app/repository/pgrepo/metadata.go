@@ -140,7 +140,7 @@ type AddToolArgs struct {
 	Columns         []AddToolColumn
 	Type            commontype.ToolType
 	Examples        []AddToolExample
-	ParamName       string
+	ParamNames      []string
 }
 
 type AddToolColumn struct {
@@ -168,25 +168,25 @@ func (r *repositoryImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 		query = `
 			insert into tool (
 				user_id, tool_description, project, dataset, table_name,
-				columns, type, param_name
-			) values ($1, $2, $3, $4, $5, $6, $7, $8)
+				columns, type
+			) values ($1, $2, $3, $4, $5, $6, $7)
 			returning id
 		`
 		queryArgs = append(queryArgs,
 			args.UserID, args.ToolDescription, args.Project, args.Dataset, args.TableName,
-			args.Columns, args.Type, args.ParamName)
+			args.Columns, args.Type)
 
 	case commontype.QueryToolType:
 		query = `
 			insert into tool (
 				user_id, tool_description, project,
-				columns, type, param_name
-			) values ($1, $2, $3, $4, $5, $6)
+				columns, type
+			) values ($1, $2, $3, $4, $5)
 			returning id
 		`
 		queryArgs = append(queryArgs,
 			args.UserID, args.ToolDescription, r.projectID,
-			args.Columns, args.Type, args.ParamName)
+			args.Columns, args.Type)
 	}
 
 	var toolID string
@@ -194,6 +194,15 @@ func (r *repositoryImpl) AddTool(ctx context.Context, args AddToolArgs) error {
 		Scan(&toolID)
 	if err != nil {
 		return fmt.Errorf("unable to insert to tool while in transaction: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `
+		insert into tool_param (tool_id, name)
+		select $1, n
+		from unnest($2::text[]) as t(n)
+	`, toolID, args.ParamNames)
+	if err != nil {
+		return fmt.Errorf("unable to insert to tool_param while in transaction: %w", err)
 	}
 
 	exampleQuery := make([]string, len(args.Examples))
@@ -230,14 +239,15 @@ type GetToolResult struct {
 }
 
 type GetToolRow struct {
+	ID              string
 	ToolDescription string
 	Project         string
-	Dataset         string
-	TableName       string
+	Dataset         *string
+	TableName       *string
 	Columns         []GetToolColumn
 	Type            commontype.ToolType
 	Examples        []GetToolExample
-	ParamName       string
+	ParamNames      []string
 }
 
 type GetToolColumn struct {
@@ -266,8 +276,17 @@ func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) (GetTool
 			group by 1
 		)
 
+		, tool_param as (
+			select
+				tool_id,
+				jsonb_agg(name) name
+			from tool_param
+			group by 1
+		)
+
 		, breakdown as (
 			select
+				t.id,
 				t.tool_description,
 				t.project,
 				t.dataset,
@@ -275,10 +294,12 @@ func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) (GetTool
 				t.columns,
 				t.type,
 				coalesce(te.example, '[]'::jsonb) example,
-				t.param_name
+				coalesce(tp.name, '[]'::jsonb) param_name
 			from tool t
 			left join tool_example te on
 				t.id = te.tool_id
+			left join tool_param tp on
+				t.id = tp.tool_id
 			where t.user_id = $1
 		)
 
@@ -293,6 +314,7 @@ func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) (GetTool
 	for rows.Next() {
 		var resultRow GetToolRow
 		err := rows.Scan(
+			&resultRow.ID,
 			&resultRow.ToolDescription,
 			&resultRow.Project,
 			&resultRow.Dataset,
@@ -300,7 +322,7 @@ func (r *repositoryImpl) GetTool(ctx context.Context, args GetToolArgs) (GetTool
 			&resultRow.Columns,
 			&resultRow.Type,
 			&resultRow.Examples,
-			&resultRow.ParamName,
+			&resultRow.ParamNames,
 		)
 		if err != nil {
 			return GetToolResult{}, fmt.Errorf("unable to read row when getting tool: %w", err)
