@@ -62,6 +62,19 @@ CREATE TABLE public.tool (
 
 
 --
+-- Name: tool_param; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tool_param (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tool_id uuid NOT NULL,
+    name text NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
 -- Name: user_information; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -102,6 +115,14 @@ ALTER TABLE ONLY public.example
 
 ALTER TABLE ONLY public.schema_migrations
     ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
+
+
+--
+-- Name: tool_param tool_param_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tool_param
+    ADD CONSTRAINT tool_param_pkey PRIMARY KEY (id);
 
 
 --
@@ -152,6 +173,14 @@ ALTER TABLE ONLY public.example
 
 
 --
+-- Name: tool_param tool_param_tool_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tool_param
+    ADD CONSTRAINT tool_param_tool_id_fkey FOREIGN KEY (tool_id) REFERENCES public.tool(id);
+
+
+--
 -- Name: tool tool_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -188,4 +217,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260925121455'),
     ('20260925134308'),
     ('20260926044424'),
-    ('20261001094943');
+    ('20261001094943'),
+    ('20261002104256');

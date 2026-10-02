@@ -6,7 +6,7 @@ type ctxKey int
 
 const (
 	UserIDCtxKey ctxKey = iota
-	FilterCtxKey
+	ParamNameCtxKey
 	SaltCtxKey
 	TokenCtxKey
 )

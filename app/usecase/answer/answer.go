@@ -13,9 +13,9 @@ import (
 )
 
 type GetAnswerArgs struct {
-	Prompt string
-	Param  string
-	UserID string
+	Prompt     string
+	ParamValue string
+	UserID     string
 }
 
 type GetAnswerResult struct {
@@ -24,7 +24,7 @@ type GetAnswerResult struct {
 }
 
 func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAnswerResult, error) {
-	hashedParam, err := u.hashParam(ctx, args.Param)
+	hashedParam, err := u.hashParamValue(ctx, args.ParamValue)
 	if err != nil {
 		return GetAnswerResult{}, err
 	}
@@ -35,10 +35,10 @@ func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAns
 	}
 
 	content, err := u.geminiAdapter.GetContent(ctx, geminiadapter.GetContentArgs{
-		Token:  token,
-		Prompt: args.Prompt,
-		Param:  hashedParam,
-		UserID: args.UserID,
+		Token:      token,
+		Prompt:     args.Prompt,
+		ParamValue: hashedParam,
+		UserID:     args.UserID,
 	})
 	if err != nil {
 		return GetAnswerResult{}, err
@@ -50,8 +50,8 @@ func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAns
 	}, nil
 }
 
-func (u *usecaseImpl) hashParam(ctx context.Context, param string) (string, error) {
-	paramParts := strings.FieldsFunc(param, func(r rune) bool {
+func (u *usecaseImpl) hashParamValue(ctx context.Context, value string) (string, error) {
+	parts := strings.FieldsFunc(value, func(r rune) bool {
 		return r == ',' || r == '\n'
 	})
 	salt, ok := ctx.Value(commonctx.SaltCtxKey).(string)
@@ -59,6 +59,6 @@ func (u *usecaseImpl) hashParam(ctx context.Context, param string) (string, erro
 		return "", errors.New("unable to get salt from context")
 	}
 
-	hashedParts := commoncrypto.HashStringSlice(paramParts, salt)
+	hashedParts := commoncrypto.HashStringSlice(parts, salt)
 	return strings.Join(hashedParts, ","), nil
 }
