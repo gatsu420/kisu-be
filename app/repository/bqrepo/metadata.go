@@ -13,7 +13,7 @@ import (
 )
 
 type CallToolArgs struct {
-	Filter       string
+	ParamName    string
 	Salt         string
 	Type         commontype.ToolType
 	Project      string
@@ -40,12 +40,12 @@ func (r *repositoryImpl) CallTool(ctx context.Context, args CallToolArgs) (CallT
 	defer bqClient.Close()
 
 	queryPrefix := fmt.Sprintf(`
-	with hashed_filter as (
+	with hashed_param as (
 		select
 			*,
 			to_base64(sha256(concat(%s, "%s"))) hashed_%s
 		from
-	`, args.Filter, args.Salt, args.Filter)
+	`, args.ParamName, args.Salt, args.ParamName)
 
 	switch args.Type {
 	case commontype.TableToolType:
@@ -210,21 +210,21 @@ func runQueryWithRows(ctx context.Context, args runQueryWithRowsArgs) (runQueryW
 	job, err := args.bqClient.Query(args.query).
 		Run(ctx)
 	if err != nil {
-		return runQueryWithRowsResult{}, fmt.Errorf("unable to run select job from hashed filter view: %w", err)
+		return runQueryWithRowsResult{}, fmt.Errorf("unable to run job: %w", err)
 	}
 
 	jobStatus, err := job.Wait(ctx)
 	if err != nil {
-		return runQueryWithRowsResult{}, fmt.Errorf("select job has failed: %w", err)
+		return runQueryWithRowsResult{}, fmt.Errorf("job has failed: %w", err)
 	}
 
 	if jobStatus.Err() != nil {
-		return runQueryWithRowsResult{}, fmt.Errorf("select job has error: %w", jobStatus.Err())
+		return runQueryWithRowsResult{}, fmt.Errorf("job has error: %w", jobStatus.Err())
 	}
 
 	resultRows, err := job.Read(ctx)
 	if err != nil {
-		return runQueryWithRowsResult{}, fmt.Errorf("unable to get result of select job: %w", err)
+		return runQueryWithRowsResult{}, fmt.Errorf("unable to get result of job: %w", err)
 	}
 
 	rows := []map[string]bigquery.Value{}
@@ -236,7 +236,7 @@ func runQueryWithRows(ctx context.Context, args runQueryWithRowsArgs) (runQueryW
 		}
 
 		if err != nil {
-			return runQueryWithRowsResult{}, fmt.Errorf("row doesn't conform to row map: %w", err)
+			return runQueryWithRowsResult{}, fmt.Errorf("row doesn't conform to map: %w", err)
 		}
 
 		rows = append(rows, row)

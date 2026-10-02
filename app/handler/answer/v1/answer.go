@@ -37,16 +37,16 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 	// The less uglier way is to construct ctx value as struct, but
 	// it's no biggie for now.
 	ctx := context.WithValue(r.Context(),
-		commonctx.FilterCtxKey,
-		r.URL.Query().Get("filter"))
+		commonctx.ParamNameCtxKey,
+		r.URL.Query().Get("param_name"))
 	ctx = context.WithValue(ctx,
 		commonctx.SaltCtxKey,
 		uuid.New().String())
 
 	promptAnswer, err := h.answerUsecase.GetAnswer(ctx, answer.GetAnswerArgs{
-		Prompt: r.URL.Query().Get("prompt"),
-		Param:  r.URL.Query().Get("param"),
-		UserID: userID.Value,
+		Prompt:     r.URL.Query().Get("prompt"),
+		ParamValue: r.URL.Query().Get("param_value"),
+		UserID:     userID.Value,
 	})
 	if err != nil {
 		errMsg = "unable to get answer"

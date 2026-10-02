@@ -276,9 +276,9 @@ type CallToolResult struct {
 }
 
 func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallToolResult, error) {
-	filter, ok := ctx.Value(commonctx.FilterCtxKey).(string)
+	paramName, ok := ctx.Value(commonctx.ParamNameCtxKey).(string)
 	if !ok {
-		return CallToolResult{}, errors.New("unable to get filter from context")
+		return CallToolResult{}, errors.New("unable to get param name from context")
 	}
 
 	salt, ok := ctx.Value(commonctx.SaltCtxKey).(string)
@@ -297,7 +297,7 @@ func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallTool
 	}
 
 	result, err := u.bqRepo.CallTool(ctx, bqrepo.CallToolArgs{
-		Filter:       filter,
+		ParamName:    paramName,
 		Salt:         salt,
 		Type:         args.Type,
 		Project:      project,

@@ -15,10 +15,10 @@ import (
 )
 
 type GetContentArgs struct {
-	Token  *oauth2.Token
-	Prompt string
-	Param  string
-	UserID string
+	Token      *oauth2.Token
+	Prompt     string
+	ParamValue string
+	UserID     string
 }
 
 type GetContentResult struct {
@@ -47,7 +47,7 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 		Temperature: &geminiTemp,
 	}
 
-	paramName, ok := ctx.Value(commonctx.FilterCtxKey).(string)
+	paramName, ok := ctx.Value(commonctx.ParamNameCtxKey).(string)
 	if !ok {
 		return GetContentResult{}, errors.New("there is no param name inside context")
 	}
@@ -56,7 +56,7 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 		Put %s in hashed_%s tool args.
 		Translate %s into SQL.
 		Strive for single tool call.
-	`, args.Param, paramName, args.Prompt))
+	`, args.ParamValue, paramName, args.Prompt))
 	resp, err := a.genaiClient.Models.GenerateContent(ctx, "gemini-3.1-flash-lite", contents, geminiConfig)
 	if err != nil {
 		return GetContentResult{}, fmt.Errorf("unable to use gemini client: %w", err)
@@ -194,7 +194,7 @@ func (a *adapterImpl) declareTool(ctx context.Context, args declareToolArgs) (de
 						e.Description,
 						strings.ReplaceAll(e.Query,
 							"`"+tableLocation+"`",
-							"hashed_filter")))
+							"hashed_param")))
 			}
 
 			examples += strings.Join(exampleItems, "\n")
@@ -204,7 +204,7 @@ func (a *adapterImpl) declareTool(ctx context.Context, args declareToolArgs) (de
 		declarations = append(declarations, &genai.FunctionDeclaration{
 			Name: tableLocation,
 			Description: fmt.Sprintf(`
-				Run SELECT-only query from hashed_filter CTE to get
+				Run SELECT-only query from hashed_param CTE to get
 				information about: %s.
 
 				%s
@@ -237,7 +237,7 @@ func (a *adapterImpl) declareTool(ctx context.Context, args declareToolArgs) (de
 					},
 					"builder_query": {
 						Type:        genai.TypeString,
-						Description: "Query that is used to build hashed_filter CTE",
+						Description: "Query that is used to build hashed_param CTE",
 					},
 				},
 				Required: []string{"hashed_" + r.ParamName, "query", "builder_query"},
