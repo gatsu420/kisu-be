@@ -137,7 +137,9 @@ function ToolCard({ tool }: ToolCardProps) {
                 <th className={styles.th}>Name</th>
                 <th className={styles.th}>Type</th>
                 <th className={styles.th}>Description</th>
-                <th className={`${styles.th} ${styles.thCenter}`}>Param</th>
+                <th className={`${styles.th} ${styles.thCenter}`}>
+                  Is a param
+                </th>
               </tr>
             </thead>
             <tbody>
