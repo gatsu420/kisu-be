@@ -33,36 +33,55 @@ interface FormData {
   query: Query[];
 }
 
+const emptyForm = (): FormData => ({
+  tool_description: "",
+  project: "",
+  dataset: "",
+  table_name: "",
+  columns: [{ name: "", type: "", description: "" }],
+  query: [{ description: "", query: "", status: "unverified" }],
+});
+
 export default function AddTool() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<ToolType>("table");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Index of the column checked as Param. Its name becomes param_name.
-  const [paramIndex, setParamIndex] = useState<number | null>(null);
   const [filling, setFilling] = useState(false);
-  const [fillError, setFillError] = useState<string | null>(null);
+
+  // Each tab keeps its own form, so a half filled form is kept on tab switch.
+  const [tableData, setTableData] = useState<FormData>(emptyForm);
+  const [queryData, setQueryData] = useState<FormData>(emptyForm);
+  // Index of the column checked as Param. Its name becomes param_name.
+  const [tableParamIndex, setTableParamIndex] = useState<number | null>(null);
+  const [queryParamIndex, setQueryParamIndex] = useState<number | null>(null);
+  const [tableFillError, setTableFillError] = useState<string | null>(null);
+  const [queryFillError, setQueryFillError] = useState<string | null>(null);
+
+  // Read and write only the state of the active tab.
+  const formData = mode === "table" ? tableData : queryData;
+  const paramIndex = mode === "table" ? tableParamIndex : queryParamIndex;
+  const fillError = mode === "table" ? tableFillError : queryFillError;
+  const setFormData: React.Dispatch<React.SetStateAction<FormData>> = (
+    value,
+  ) => (mode === "table" ? setTableData(value) : setQueryData(value));
+  const setParamIndex: React.Dispatch<
+    React.SetStateAction<number | null>
+  > = (value) =>
+    mode === "table" ? setTableParamIndex(value) : setQueryParamIndex(value);
+  const setFillError: React.Dispatch<React.SetStateAction<string | null>> = (
+    value,
+  ) =>
+    mode === "table" ? setTableFillError(value) : setQueryFillError(value);
 
   const changeMode = (next: ToolType) => {
     setSuccess(false);
     setError(null);
-    setFillError(null);
-    if (next === "query") {
-      // Query mode allows only one query.
-      setFormData((prev) => ({ ...prev, query: prev.query.slice(0, 1) }));
-    }
+    setTableFillError(null);
+    setQueryFillError(null);
     setMode(next);
   };
-
-  const [formData, setFormData] = useState<FormData>({
-    tool_description: "",
-    project: "",
-    dataset: "",
-    table_name: "",
-    columns: [{ name: "", type: "", description: "" }],
-    query: [{ description: "", query: "", status: "unverified" }],
-  });
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -375,17 +394,13 @@ export default function AddTool() {
       });
       setSuccess(true);
       window.scrollTo(0, 0);
-      // Reset form
-      setFormData({
-        tool_description: "",
-        project: "",
-        dataset: "",
-        table_name: "",
-        columns: [{ name: "", type: "", description: "" }],
-        query: [{ description: "", query: "", status: "unverified" }],
-      });
-      setParamIndex(null);
-      setFillError(null);
+      // Reset both tabs.
+      setTableData(emptyForm());
+      setQueryData(emptyForm());
+      setTableParamIndex(null);
+      setQueryParamIndex(null);
+      setTableFillError(null);
+      setQueryFillError(null);
     } catch (e) {
       if (e instanceof Error && e.message === "unauthorized") {
         navigate("/login");
