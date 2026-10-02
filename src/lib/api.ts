@@ -1,12 +1,12 @@
 export async function fetchAnswer(
   prompt: string,
-  param: string,
-  filter: string,
+  paramValue: string,
+  paramName: string,
 ): Promise<unknown> {
   const url = new URL("/answer/v1/answer", window.location.origin);
   url.searchParams.set("prompt", prompt);
-  url.searchParams.set("param", param);
-  url.searchParams.set("filter", filter);
+  url.searchParams.set("param_value", paramValue);
+  url.searchParams.set("param_name", paramName);
 
   const res = await fetch(url.toString(), {
     method: "GET",
@@ -124,9 +124,7 @@ interface AddToolPayload {
   columns: { name: string; type: string; description: string }[];
   type: ToolType;
   examples: { description: string; query: string }[];
-  param_name: string;
-  param_type: string;
-  param_description: string;
+  param_names: string[];
 }
 
 export async function addTool(payload: AddToolPayload): Promise<string> {
@@ -169,9 +167,7 @@ export interface Tool {
   columns: ToolColumn[];
   type: ToolType;
   examples: ToolQueryExamples[];
-  param_name: string;
-  param_type: string;
-  param_description: string;
+  param_names: string[];
 }
 
 export async function fetchTool(): Promise<Tool[]> {

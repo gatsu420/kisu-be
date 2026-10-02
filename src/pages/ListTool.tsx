@@ -137,18 +137,18 @@ function ToolCard({ tool }: ToolCardProps) {
                 <th className={styles.th}>Name</th>
                 <th className={styles.th}>Type</th>
                 <th className={styles.th}>Description</th>
+                <th className={`${styles.th} ${styles.thCenter}`}>Param</th>
               </tr>
             </thead>
             <tbody>
               {tool.columns.map((col, i) => (
                 <tr key={i} className={i % 2 === 0 ? styles.trEven : undefined}>
-                  <td className={styles.td}>
-                    {tool.param_name && col.name === tool.param_name
-                      ? `${col.name} (param)`
-                      : col.name}
-                  </td>
+                  <td className={styles.td}>{col.name}</td>
                   <td className={styles.td}>{col.type}</td>
                   <td className={styles.td}>{col.description}</td>
+                  <td className={`${styles.td} ${styles.tdCenter}`}>
+                    {tool.param_names.includes(col.name) ? "\u2713" : ""}
+                  </td>
                 </tr>
               ))}
             </tbody>

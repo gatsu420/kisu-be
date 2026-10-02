@@ -53,23 +53,23 @@ export default function AddTool() {
   // Each tab keeps its own form, so a half filled form is kept on tab switch.
   const [tableData, setTableData] = useState<FormData>(emptyForm);
   const [queryData, setQueryData] = useState<FormData>(emptyForm);
-  // Index of the column checked as Param. Its name becomes param_name.
-  const [tableParamIndex, setTableParamIndex] = useState<number | null>(null);
-  const [queryParamIndex, setQueryParamIndex] = useState<number | null>(null);
+  // Indexes of the columns checked as Param. Their names become param_names.
+  const [tableParamIndexes, setTableParamIndexes] = useState<number[]>([]);
+  const [queryParamIndexes, setQueryParamIndexes] = useState<number[]>([]);
   const [tableFillError, setTableFillError] = useState<string | null>(null);
   const [queryFillError, setQueryFillError] = useState<string | null>(null);
 
   // Read and write only the state of the active tab.
   const formData = mode === "table" ? tableData : queryData;
-  const paramIndex = mode === "table" ? tableParamIndex : queryParamIndex;
+  const paramIndexes = mode === "table" ? tableParamIndexes : queryParamIndexes;
   const fillError = mode === "table" ? tableFillError : queryFillError;
   const setFormData: React.Dispatch<React.SetStateAction<FormData>> = (
     value,
   ) => (mode === "table" ? setTableData(value) : setQueryData(value));
-  const setParamIndex: React.Dispatch<
-    React.SetStateAction<number | null>
-  > = (value) =>
-    mode === "table" ? setTableParamIndex(value) : setQueryParamIndex(value);
+  const setParamIndexes: React.Dispatch<React.SetStateAction<number[]>> = (
+    value,
+  ) =>
+    mode === "table" ? setTableParamIndexes(value) : setQueryParamIndexes(value);
   const setFillError: React.Dispatch<React.SetStateAction<string | null>> = (
     value,
   ) =>
@@ -111,14 +111,22 @@ export default function AddTool() {
     if (formData.columns.length <= 1) return;
     const newColumns = formData.columns.filter((_, i) => i !== index);
     setFormData((prev) => ({ ...prev, columns: newColumns }));
-    if (paramIndex === index) setParamIndex(null);
-    else if (paramIndex !== null && index < paramIndex) {
-      setParamIndex(paramIndex - 1);
-    }
+    // Keep the other rows selected and shift the indexes after the removal.
+    setParamIndexes((prev) =>
+      prev
+        .filter((i) => i !== index)
+        .map((i) => (i > index ? i - 1 : i)),
+    );
   };
 
   const toggleParam = (index: number, checked: boolean) => {
-    setParamIndex(checked ? index : null);
+    setParamIndexes((prev) =>
+      checked
+        ? prev.includes(index)
+          ? prev
+          : [...prev, index]
+        : prev.filter((i) => i !== index),
+    );
   };
 
   // Ask the backend for table metadata and auto fill the column rows.
@@ -162,8 +170,8 @@ export default function AddTool() {
             ? description
             : prev.tool_description,
       }));
-      // Old param index no longer matches the new rows.
-      setParamIndex(null);
+      // Old param indexes no longer match the new rows.
+      setParamIndexes([]);
     } catch (e) {
       if (e instanceof Error && e.message === "unauthorized") {
         navigate("/login");
@@ -355,15 +363,21 @@ export default function AddTool() {
 
     // Validate
     const missingTableName = mode === "table" && !formData.table_name.trim();
-    const paramColumn =
-      paramIndex !== null ? formData.columns[paramIndex] : undefined;
+    const paramNames = paramIndexes
+      .map((i) => formData.columns[i]?.name.trim() ?? "")
+      .filter((name) => name.length > 0);
+    const hasEmptyParam = paramIndexes.some(
+      (i) => !(formData.columns[i]?.name.trim() ?? ""),
+    );
+    if (paramNames.length === 0 || hasEmptyParam) {
+      setError("Select at least one column as param and give it a name");
+      return;
+    }
     if (
       !formData.tool_description.trim() ||
       (mode === "table" &&
         (!formData.project.trim() || !formData.dataset.trim())) ||
-      missingTableName ||
-      !paramColumn ||
-      !paramColumn.name.trim()
+      missingTableName
     ) {
       setError("Please fill in all fields");
       return;
@@ -388,17 +402,15 @@ export default function AddTool() {
           description,
           query,
         })),
-        param_name: paramColumn.name.trim(),
-        param_type: "",
-        param_description: "",
+        param_names: paramNames,
       });
       setSuccess(true);
       window.scrollTo(0, 0);
       // Reset both tabs.
       setTableData(emptyForm());
       setQueryData(emptyForm());
-      setTableParamIndex(null);
-      setQueryParamIndex(null);
+      setTableParamIndexes([]);
+      setQueryParamIndexes([]);
       setTableFillError(null);
       setQueryFillError(null);
     } catch (e) {
@@ -544,7 +556,7 @@ export default function AddTool() {
                   <input
                     className={styles.check}
                     type="checkbox"
-                    checked={paramIndex === index}
+                    checked={paramIndexes.includes(index)}
                     onChange={(e) => toggleParam(index, e.target.checked)}
                   />
                 </div>

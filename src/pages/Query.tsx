@@ -17,10 +17,10 @@ interface Message {
 }
 
 export default function Query() {
-  const [param, setParam] = useState("");
-  const [paramDraft, setParamDraft] = useState("");
-  const [filter, setFilter] = useState("");
-  const [filterDraft, setFilterDraft] = useState("");
+  const [paramValue, setParamValue] = useState("");
+  const [paramValueDraft, setParamValueDraft] = useState("");
+  const [paramName, setParamName] = useState("");
+  const [paramNameDraft, setParamNameDraft] = useState("");
   const [prompt, setPrompt] = useState("");
   const [message, setMessage] = useState<Message | null>(null);
   const [loading, setLoading] = useState(false);
@@ -33,7 +33,7 @@ export default function Query() {
   } | null>(null);
   const navigate = useNavigate();
 
-  const paramLocked = param.length > 0 && filter.length > 0;
+  const paramLocked = paramValue.length > 0 && paramName.length > 0;
 
   useEffect(() => {
     if (paramLocked) promptRef.current?.focus();
@@ -46,7 +46,7 @@ export default function Query() {
         el ? el.scrollHeight > el.clientHeight + 1 : false,
       ),
     );
-  }, [param, filter, paramLocked]);
+  }, [paramValue, paramName, paramLocked]);
 
   useEffect(() => {
     if (!fullValue) return;
@@ -59,19 +59,19 @@ export default function Query() {
 
   const handleSetParam = (e: FormEvent) => {
     e.preventDefault();
-    const trimmedParam = paramDraft.trim();
-    const trimmedFilter = filterDraft.trim();
-    if (trimmedParam && trimmedFilter) {
-      setParam(trimmedParam);
-      setFilter(trimmedFilter);
+    const trimmedParamValue = paramValueDraft.trim();
+    const trimmedParamName = paramNameDraft.trim();
+    if (trimmedParamValue && trimmedParamName) {
+      setParamValue(trimmedParamValue);
+      setParamName(trimmedParamName);
     }
   };
 
   const handleReset = () => {
-    setParam("");
-    setParamDraft("");
-    setFilter("");
-    setFilterDraft("");
+    setParamValue("");
+    setParamValueDraft("");
+    setParamName("");
+    setParamNameDraft("");
     setPrompt("");
     setMessage(null);
   };
@@ -85,7 +85,7 @@ export default function Query() {
     setMessage({ prompt: currentPrompt });
 
     try {
-      const data = await fetchAnswer(currentPrompt, param, filter);
+      const data = await fetchAnswer(currentPrompt, paramValue, paramName);
       setMessage({ prompt: currentPrompt, result: data });
     } catch (e) {
       if (e instanceof Error && e.message === "unauthorized") {
@@ -122,8 +122,8 @@ export default function Query() {
                   <textarea
                     className={styles.setupInputTextarea}
                     placeholder="e.g. alice@example.com"
-                    value={paramDraft}
-                    onChange={(e) => setParamDraft(e.target.value)}
+                    value={paramValueDraft}
+                    onChange={(e) => setParamValueDraft(e.target.value)}
                     rows={3}
                     autoFocus
                   />
@@ -133,8 +133,8 @@ export default function Query() {
                   <input
                     className={styles.setupInput}
                     placeholder="e.g. email"
-                    value={filterDraft}
-                    onChange={(e) => setFilterDraft(e.target.value)}
+                    value={paramNameDraft}
+                    onChange={(e) => setParamNameDraft(e.target.value)}
                   />
                 </div>
               </div>
@@ -143,9 +143,9 @@ export default function Query() {
                   type="submit"
                   className={styles.setupBtn}
                   style={{
-                    opacity: paramDraft.trim() && filterDraft.trim() ? 1 : 0.5,
+                    opacity: paramValueDraft.trim() && paramNameDraft.trim() ? 1 : 0.5,
                   }}
-                  disabled={!paramDraft.trim() || !filterDraft.trim()}
+                  disabled={!paramValueDraft.trim() || !paramNameDraft.trim()}
                 >
                   Set
                 </button>
@@ -164,7 +164,7 @@ export default function Query() {
                         valueRefs.current[0] = el;
                       }}
                     >
-                      {param}
+                      {paramValue}
                     </p>
                     {clipped[0] && (
                       <button
@@ -173,7 +173,7 @@ export default function Query() {
                         onClick={() =>
                           setFullValue({
                             label: "Find these records ...",
-                            value: param,
+                            value: paramValue,
                           })
                         }
                       >
@@ -200,7 +200,7 @@ export default function Query() {
                         valueRefs.current[1] = el;
                       }}
                     >
-                      {filter}
+                      {paramName}
                     </p>
                     {clipped[1] && (
                       <button
@@ -209,7 +209,7 @@ export default function Query() {
                         onClick={() =>
                           setFullValue({
                             label: "On this column",
-                            value: filter,
+                            value: paramName,
                           })
                         }
                       >

@@ -519,6 +519,14 @@
   background: #fafafa;
 }
 
+.thCenter {
+  text-align: center;
+}
+
+.tdCenter {
+  text-align: center;
+}
+
 .exampleLists {
   display: flex;
   flex-direction: column;
