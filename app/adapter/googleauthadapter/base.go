@@ -6,6 +6,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/bigquery/v2"
+	"google.golang.org/api/drive/v3"
 )
 
 type Adapter interface {
@@ -28,6 +29,7 @@ func NewAdapter(googleAuthClientID string, googleAuthClientSecret string, google
 			Scopes: []string{
 				"https://www.googleapis.com/auth/userinfo.email",
 				bigquery.BigqueryScope,
+				drive.DriveFileScope,
 			},
 			Endpoint: google.Endpoint,
 		},
