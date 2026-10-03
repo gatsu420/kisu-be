@@ -533,21 +533,29 @@
   gap: 0.75rem;
 }
 
+/* Same look as the Tool result collapsible on the Query page. */
 .collapsible {
   border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  background: #f9fafb;
+  border-radius: 10px;
+  background: #ffffff;
+  overflow: hidden;
 }
 
 .collapsibleTitle {
-  padding: 0.5rem 0.75rem;
-  font-size: 0.8125rem;
-  color: #374151;
+  padding: 0.625rem 1rem;
+  background: #f9fafb;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
   cursor: pointer;
   list-style: none;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.collapsibleTitle:hover {
+  color: #374151;
 }
 
 .collapsibleTitle::-webkit-details-marker {
@@ -565,8 +573,15 @@
   transform: rotate(90deg);
 }
 
+/* Inside the collapsible the content has no box.
+   1rem keeps the text off the top and left border. */
 .collapsible .codeBlock {
-  margin: 0 0.5rem 0.5rem;
+  margin: 0;
+  padding: 1rem;
+  background: transparent;
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  border-radius: 0;
 }
 
 /* Shiki output sits inside .codeBlock. Keep our box look. */

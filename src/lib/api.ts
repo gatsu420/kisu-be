@@ -1,8 +1,13 @@
+export interface AnswerResult {
+  answer: unknown;
+  stringified_func_calls: string;
+}
+
 export async function fetchAnswer(
   prompt: string,
   paramValue: string,
   paramName: string,
-): Promise<unknown> {
+): Promise<AnswerResult> {
   const url = new URL("/answer/v1/answer", window.location.origin);
   url.searchParams.set("prompt", prompt);
   url.searchParams.set("param_value", paramValue);

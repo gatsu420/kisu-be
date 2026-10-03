@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchTool, toolTypeOf, type Tool, type ToolType } from "../lib/api";
-import { highlightSql } from "../lib/highlight";
 import Header from "../components/Header";
+import HighlightedCode from "../components/HighlightedCode";
 import styles from "./Tool.module.css";
 
 export default function ListTool() {
@@ -172,7 +172,11 @@ function ToolCard({ tool }: ToolCardProps) {
                 <summary className={styles.collapsibleTitle}>
                   {examples.description || `Example ${i + 1}`}
                 </summary>
-                <HighlightedCode code={examples.query} />
+                <HighlightedCode
+                  code={examples.query}
+                  lang="sql"
+                  className={styles.codeBlock}
+                />
               </details>
             ) : (
               <div key={i} className={styles.examples}>
@@ -181,7 +185,11 @@ function ToolCard({ tool }: ToolCardProps) {
                     {examples.description}
                   </p>
                 )}
-                <HighlightedCode code={examples.query} />
+                <HighlightedCode
+                  code={examples.query}
+                  lang="sql"
+                  className={styles.codeBlock}
+                />
               </div>
             ),
           )}
@@ -211,29 +219,4 @@ function ToolCard({ tool }: ToolCardProps) {
       </div>
     </details>
   );
-}
-
-function HighlightedCode({ code }: { code: string }) {
-  const [html, setHtml] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    highlightSql(code).then((result) => {
-      if (active) setHtml(result);
-    });
-    return () => {
-      active = false;
-    };
-  }, [code]);
-
-  if (html) {
-    return (
-      <div
-        className={styles.codeBlock}
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
-    );
-  }
-
-  return <div className={styles.codeBlock}>{code}</div>;
 }

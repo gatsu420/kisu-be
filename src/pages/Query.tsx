@@ -8,11 +8,13 @@ import {
 import { useNavigate } from "react-router-dom";
 import { fetchAnswer } from "../lib/api";
 import Header from "../components/Header";
+import HighlightedCode from "../components/HighlightedCode";
 import styles from "./Query.module.css";
 
 interface Message {
   prompt: string;
   result?: unknown;
+  funcCalls?: string;
   error?: string;
 }
 
@@ -27,6 +29,7 @@ export default function Query() {
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const valueRefs = useRef<Array<HTMLParagraphElement | null>>([]);
   const [clipped, setClipped] = useState<boolean[]>([false, false]);
+  const [showFuncCalls, setShowFuncCalls] = useState(false);
   const [fullValue, setFullValue] = useState<{
     label: string;
     value: string;
@@ -34,6 +37,7 @@ export default function Query() {
   const navigate = useNavigate();
 
   const paramLocked = paramValue.length > 0 && paramName.length > 0;
+  const funcCalls = message?.funcCalls ?? "";
 
   useEffect(() => {
     if (paramLocked) promptRef.current?.focus();
@@ -86,7 +90,12 @@ export default function Query() {
 
     try {
       const data = await fetchAnswer(currentPrompt, paramValue, paramName);
-      setMessage({ prompt: currentPrompt, result: data });
+      setShowFuncCalls(false);
+      setMessage({
+        prompt: currentPrompt,
+        result: data,
+        funcCalls: getFuncCalls(data),
+      });
     } catch (e) {
       if (e instanceof Error && e.message === "unauthorized") {
         navigate("/login");
@@ -143,7 +152,8 @@ export default function Query() {
                   type="submit"
                   className={styles.setupBtn}
                   style={{
-                    opacity: paramValueDraft.trim() && paramNameDraft.trim() ? 1 : 0.5,
+                    opacity:
+                      paramValueDraft.trim() && paramNameDraft.trim() ? 1 : 0.5,
                   }}
                   disabled={!paramValueDraft.trim() || !paramNameDraft.trim()}
                 >
@@ -254,6 +264,30 @@ export default function Query() {
                     <p className={styles.thinking}>Thinking...</p>
                   )}
                 </div>
+
+                {/* Func call row, separate from the result row */}
+                {funcCalls && (
+                  <div className={styles.funcCallContainer}>
+                    <button
+                      type="button"
+                      className={styles.funcCallToggle}
+                      aria-expanded={showFuncCalls}
+                      onClick={() => setShowFuncCalls((v) => !v)}
+                    >
+                      <span className={styles.funcCallArrow}>
+                        {showFuncCalls ? "v" : ">"}
+                      </span>
+                      TOOL RESULT
+                    </button>
+                    {showFuncCalls && (
+                      <HighlightedCode
+                        code={funcCalls}
+                        lang="json"
+                        className={styles.funcCallBody}
+                      />
+                    )}
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -358,6 +392,16 @@ function renderCell(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
+}
+
+// The endpoint returns { answer, stringified_func_calls }.
+// Show the func call only when it is a non-empty string.
+function getFuncCalls(data: unknown): string | undefined {
+  if (data && typeof data === "object" && !Array.isArray(data)) {
+    const value = (data as Record<string, unknown>).stringified_func_calls;
+    if (typeof value === "string" && value.trim() !== "") return value;
+  }
+  return undefined;
 }
 
 function getTextAnswer(data: unknown): string | null {

@@ -361,3 +361,58 @@
   font-size: 0.8125rem;
   line-height: 1.5;
 }
+
+/* Tool result row: own row under the result. */
+.funcCallContainer {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.funcCallToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.625rem 1rem;
+  background: #f9fafb;
+  border: none;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-align: left;
+}
+
+.funcCallToggle:hover {
+  color: #374151;
+}
+
+.funcCallArrow {
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+/* pre-wrap keeps the newlines from the stringified func call. */
+.funcCallBody {
+  margin: 0;
+  padding: 1rem;
+  border-top: 1px solid #e5e7eb;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #1f2937;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: auto;
+}
+
+/* Shiki output sits inside .funcCallBody. Keep our quiet box look. */
+.funcCallBody .shiki {
+  margin: 0;
+  padding: 0;
+  background-color: transparent !important;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
