@@ -584,11 +584,18 @@
   border-radius: 0;
 }
 
-/* Shiki output sits inside .codeBlock. Keep our box look. */
-.codeBlock .shiki {
+/* Shiki output sits inside .codeBlock. Keep our box look.
+   .shiki and .line come from the shiki library, so they must be :global
+   or CSS modules will hash them and the selector never matches. */
+.codeBlock :global(.shiki),
+.codeBlock :global(.shiki code),
+.codeBlock :global(.shiki .line) {
   margin: 0;
   padding: 0;
   background-color: transparent !important;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .examples {

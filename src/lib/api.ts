@@ -192,6 +192,36 @@ export async function fetchTool(): Promise<Tool[]> {
   return res.json();
 }
 
+export async function uploadCsv(name: string, content: string): Promise<string> {
+  const res = await fetch("/answer/v1/upload", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify({ name, content }),
+  });
+
+  if (res.status === 401) {
+    throw new Error("unauthorized");
+  }
+
+  if (!res.ok) {
+    throw new Error("upload failed");
+  }
+
+  const data: unknown = await res.json();
+  if (
+    typeof data === "object" &&
+    data !== null &&
+    "url" in data &&
+    typeof (data as { url: unknown }).url === "string"
+  ) {
+    return (data as { url: string }).url;
+  }
+  throw new Error("upload response is invalid");
+}
+
 export function redirectToLogin() {
   window.location.href = "/auth/v1/get-permission";
 }

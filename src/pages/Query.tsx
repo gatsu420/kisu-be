@@ -6,9 +6,10 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchAnswer } from "../lib/api";
+import { fetchAnswer, uploadCsv } from "../lib/api";
 import Header from "../components/Header";
 import HighlightedCode from "../components/HighlightedCode";
+import toolStyles from "./Tool.module.css";
 import styles from "./Query.module.css";
 
 interface Message {
@@ -29,15 +30,27 @@ export default function Query() {
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const valueRefs = useRef<Array<HTMLParagraphElement | null>>([]);
   const [clipped, setClipped] = useState<boolean[]>([false, false]);
-  const [showFuncCalls, setShowFuncCalls] = useState(false);
+  const [resultTab, setResultTab] = useState<"answer" | "tool">("answer");
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadUrl, setUploadUrl] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const saveRef = useRef<HTMLDivElement>(null);
   const [fullValue, setFullValue] = useState<{
     label: string;
     value: string;
   } | null>(null);
+  const [resetTarget, setResetTarget] = useState<"value" | "name" | null>(null);
+  const [resetDraft, setResetDraft] = useState("");
   const navigate = useNavigate();
 
   const paramLocked = paramValue.length > 0 && paramName.length > 0;
   const funcCalls = message?.funcCalls ?? "";
+  const answerRows =
+    message && !message.error && message.result !== undefined
+      ? unwrapAnswer(message.result)
+      : null;
+  const canUpload = answerRows !== null && answerRows.length > 0;
 
   useEffect(() => {
     if (paramLocked) promptRef.current?.focus();
@@ -61,6 +74,28 @@ export default function Query() {
     return () => window.removeEventListener("keydown", onKey);
   }, [fullValue]);
 
+  // Close the param reset popup with Escape.
+  useEffect(() => {
+    if (!resetTarget) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") setResetTarget(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [resetTarget]);
+
+  // Close the Save result menu when clicking outside it.
+  useEffect(() => {
+    if (!saveOpen) return;
+    const onDown = (e: globalThis.MouseEvent) => {
+      if (saveRef.current && !saveRef.current.contains(e.target as Node)) {
+        setSaveOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [saveOpen]);
+
   const handleSetParam = (e: FormEvent) => {
     e.preventDefault();
     const trimmedParamValue = paramValueDraft.trim();
@@ -71,13 +106,20 @@ export default function Query() {
     }
   };
 
-  const handleReset = () => {
-    setParamValue("");
-    setParamValueDraft("");
-    setParamName("");
-    setParamNameDraft("");
-    setPrompt("");
-    setMessage(null);
+  // Open the popup that changes one param, without leaving this page.
+  const openReset = (target: "value" | "name") => {
+    setResetDraft(target === "value" ? paramValue : paramName);
+    setResetTarget(target);
+  };
+
+  const handleResetSave = (e: FormEvent) => {
+    e.preventDefault();
+    const nextValue = resetDraft.trim();
+    if (!nextValue || !resetTarget) return;
+    if (resetTarget === "value") setParamValue(nextValue);
+    else setParamName(nextValue);
+    setResetDraft("");
+    setResetTarget(null);
   };
 
   const handleAsk = async () => {
@@ -87,10 +129,13 @@ export default function Query() {
 
     // Set placeholder message (overwrites previous)
     setMessage({ prompt: currentPrompt });
+    setUploadUrl(null);
+    setUploadError(null);
+    setResultTab("answer");
+    setSaveOpen(false);
 
     try {
       const data = await fetchAnswer(currentPrompt, paramValue, paramName);
-      setShowFuncCalls(false);
       setMessage({
         prompt: currentPrompt,
         result: data,
@@ -108,6 +153,27 @@ export default function Query() {
     }
   };
 
+  const handleUpload = async () => {
+    if (!answerRows || answerRows.length === 0 || uploading) return;
+    setUploading(true);
+    setUploadError(null);
+    setUploadUrl(null);
+
+    try {
+      const url = await uploadCsv(csvFileName(), rowsToCsv(answerRows));
+      setUploadUrl(url);
+    } catch (e) {
+      if (e instanceof Error && e.message === "unauthorized") {
+        navigate("/login");
+        return;
+      }
+      setUploadError(e instanceof Error ? e.message : "upload failed");
+    } finally {
+      setUploading(false);
+      setSaveOpen(false);
+    }
+  };
+
   const handlePromptKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -117,6 +183,28 @@ export default function Query() {
 
   return (
     <div className={styles.page}>
+      {uploadUrl && (
+        <div className={toolStyles.snackbar}>
+          <span className={toolStyles.snackbarText}>
+            {"CSV has been uploaded successfully! "}
+            <a
+              className={styles.snackLink}
+              href={uploadUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open in Google Drive
+            </a>
+          </span>
+          <button
+            type="button"
+            className={toolStyles.snackbarClose}
+            onClick={() => setUploadUrl(null)}
+          >
+            x
+          </button>
+        </div>
+      )}
       <Header />
 
       <main className={styles.main}>
@@ -167,7 +255,17 @@ export default function Query() {
                 {/* Info cards */}
                 <div className={styles.infoCards}>
                   <div className={styles.infoCard}>
-                    <p className={styles.infoCardLabel}>Find these records</p>
+                    <p className={styles.infoCardLabel}>
+                      Find these records <span className={styles.paren}>(</span>
+                      <button
+                        type="button"
+                        className={styles.resetLink}
+                        onClick={() => openReset("value")}
+                      >
+                        reset
+                      </button>
+                      <span className={styles.paren}>)</span>
+                    </p>
                     <p
                       className={styles.infoCardValue}
                       ref={(el) => {
@@ -198,7 +296,7 @@ export default function Query() {
                       <button
                         type="button"
                         className={styles.resetLink}
-                        onClick={handleReset}
+                        onClick={() => openReset("name")}
                       >
                         reset
                       </button>
@@ -250,42 +348,90 @@ export default function Query() {
                   </button>
                 </div>
 
-                {/* Result table */}
-                <div className={styles.tableContainer}>
-                  {message === null ? (
-                    <p className={styles.emptyTable}>
-                      Ask a question above to see results.
-                    </p>
-                  ) : message.error ? (
-                    <p className={styles.error}>{message.error}</p>
-                  ) : message.result !== undefined ? (
-                    <ResultTable data={message.result} />
-                  ) : (
-                    <p className={styles.thinking}>Thinking...</p>
+                {/* Result tabs, own row above the result box */}
+                {message !== null &&
+                  !message.error &&
+                  message.result !== undefined && (
+                    <>
+                      <div className={toolStyles.tabs}>
+                        <button
+                          type="button"
+                          className={`${toolStyles.tab} ${
+                            resultTab === "answer" ? toolStyles.tabActive : ""
+                          }`}
+                          onClick={() => setResultTab("answer")}
+                        >
+                          Answer
+                        </button>
+                        <button
+                          type="button"
+                          className={`${toolStyles.tab} ${
+                            resultTab === "tool" ? toolStyles.tabActive : ""
+                          } ${funcCalls ? "" : styles.tabDisabled}`}
+                          onClick={() => setResultTab("tool")}
+                          disabled={!funcCalls}
+                        >
+                          Tool call
+                        </button>
+                        <div className={styles.saveWrap} ref={saveRef}>
+                          <button
+                            type="button"
+                            className={`${toolStyles.tab} ${
+                              canUpload ? "" : styles.tabDisabled
+                            }`}
+                            aria-expanded={saveOpen}
+                            onClick={() => setSaveOpen((v) => !v)}
+                            disabled={!canUpload}
+                          >
+                            Save result{" "}
+                            <span className={styles.saveCaret}>
+                              {saveOpen ? "\u25b2" : "\u25bc"}
+                            </span>
+                          </button>
+                          {saveOpen && (
+                            <div className={styles.saveMenu}>
+                              <button
+                                type="button"
+                                className={styles.saveMenuItem}
+                                onClick={handleUpload}
+                                disabled={uploading}
+                              >
+                                {uploading
+                                  ? "Uploading..."
+                                  : "Upload to Google Drive as CSV"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {uploadError && (
+                        <p className={styles.uploadError}>{uploadError}</p>
+                      )}
+                    </>
                   )}
-                </div>
 
-                {/* Func call row, separate from the result row */}
-                {funcCalls && (
-                  <div className={styles.funcCallContainer}>
-                    <button
-                      type="button"
-                      className={styles.funcCallToggle}
-                      aria-expanded={showFuncCalls}
-                      onClick={() => setShowFuncCalls((v) => !v)}
-                    >
-                      <span className={styles.funcCallArrow}>
-                        {showFuncCalls ? "v" : ">"}
-                      </span>
-                      TOOL RESULT
-                    </button>
-                    {showFuncCalls && (
-                      <HighlightedCode
-                        code={funcCalls}
-                        lang="json"
-                        className={styles.funcCallBody}
-                      />
+                {/* Result box: answer tab shows table, tool call tab shows code */}
+                {resultTab === "answer" ? (
+                  <div className={styles.tableContainer}>
+                    {message === null ? (
+                      <p className={styles.emptyTable}>
+                        Ask a question above to see results.
+                      </p>
+                    ) : message.error ? (
+                      <p className={styles.error}>{message.error}</p>
+                    ) : message.result !== undefined ? (
+                      <ResultTable data={message.result} />
+                    ) : (
+                      <p className={styles.thinking}>Thinking...</p>
                     )}
+                  </div>
+                ) : (
+                  <div className={styles.funcCallContainer}>
+                    <HighlightedCode
+                      code={funcCalls}
+                      lang="json"
+                      className={styles.funcCallBody}
+                    />
                   </div>
                 )}
               </div>
@@ -310,11 +456,70 @@ export default function Query() {
                     aria-label="Close"
                     onClick={() => setFullValue(null)}
                   >
-                    x
+                    ×
                   </button>
                 </div>
                 <p className={styles.modalValue}>{fullValue.value}</p>
               </div>
+            </div>
+          )}
+          {/* Param reset popup: change one value, keep prompt and result. */}
+          {resetTarget && (
+            <div
+              className={styles.modalOverlay}
+              onClick={() => setResetTarget(null)}
+            >
+              <form
+                className={styles.modal}
+                role="dialog"
+                aria-modal="true"
+                onClick={(e) => e.stopPropagation()}
+                onSubmit={handleResetSave}
+              >
+                <div className={styles.modalHeader}>
+                  <p className={styles.infoCardLabel}>
+                    {resetTarget === "value"
+                      ? "Find these records ..."
+                      : "On this column"}
+                  </p>
+                  <button
+                    type="button"
+                    className={styles.modalClose}
+                    aria-label="Close"
+                    onClick={() => setResetTarget(null)}
+                  >
+                    ×
+                  </button>
+                </div>
+                {resetTarget === "value" ? (
+                  <textarea
+                    className={styles.setupInputTextarea}
+                    placeholder="e.g. alice@example.com"
+                    value={resetDraft}
+                    onChange={(e) => setResetDraft(e.target.value)}
+                    rows={3}
+                    autoFocus
+                  />
+                ) : (
+                  <input
+                    className={styles.setupInput}
+                    placeholder="e.g. email"
+                    value={resetDraft}
+                    onChange={(e) => setResetDraft(e.target.value)}
+                    autoFocus
+                  />
+                )}
+                <div className={styles.setupSubmit}>
+                  <button
+                    type="submit"
+                    className={styles.setupBtn}
+                    style={{ opacity: resetDraft.trim() ? 1 : 0.5 }}
+                    disabled={!resetDraft.trim()}
+                  >
+                    Set
+                  </button>
+                </div>
+              </form>
             </div>
           )}
         </div>
@@ -412,4 +617,28 @@ function getTextAnswer(data: unknown): string | null {
     }
   }
   return null;
+}
+
+function rowsToCsv(rows: Record<string, unknown>[]): string {
+  const columns = Object.keys(rows[0]);
+  const lines = [columns.map(csvCell).join(",")];
+  for (const row of rows) {
+    lines.push(columns.map((col) => csvCell(renderCell(row[col]))).join(","));
+  }
+  return lines.join("\n");
+}
+
+function csvCell(value: string): string {
+  if (/[",\n\r]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+function csvFileName(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const date = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+  const time = `${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  return `answer_${date}_${time}.csv`;
 }
