@@ -174,6 +174,22 @@ export default function Query() {
     }
   };
 
+  const handleDownload = () => {
+    if (!answerRows || answerRows.length === 0) return;
+    const blob = new Blob([rowsToCsv(answerRows)], {
+      type: "text/csv;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = csvFileName();
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setSaveOpen(false);
+  };
+
   const handlePromptKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -363,16 +379,6 @@ export default function Query() {
                         >
                           Answer
                         </button>
-                        <button
-                          type="button"
-                          className={`${toolStyles.tab} ${
-                            resultTab === "tool" ? toolStyles.tabActive : ""
-                          } ${funcCalls ? "" : styles.tabDisabled}`}
-                          onClick={() => setResultTab("tool")}
-                          disabled={!funcCalls}
-                        >
-                          Tool call
-                        </button>
                         <div className={styles.saveWrap} ref={saveRef}>
                           <button
                             type="button"
@@ -400,9 +406,26 @@ export default function Query() {
                                   ? "Uploading..."
                                   : "Upload to Google Drive as CSV"}
                               </button>
+                              <button
+                                type="button"
+                                className={styles.saveMenuItem}
+                                onClick={handleDownload}
+                              >
+                                Download as CSV
+                              </button>
                             </div>
                           )}
                         </div>
+                        <button
+                          type="button"
+                          className={`${toolStyles.tab} ${
+                            resultTab === "tool" ? toolStyles.tabActive : ""
+                          } ${funcCalls ? "" : styles.tabDisabled}`}
+                          onClick={() => setResultTab("tool")}
+                          disabled={!funcCalls}
+                        >
+                          Tool call
+                        </button>
                       </div>
                       {uploadError && (
                         <p className={styles.uploadError}>{uploadError}</p>
