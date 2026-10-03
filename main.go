@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gatsu420/kisu-be/app/adapter/driveadapter"
 	"github.com/gatsu420/kisu-be/app/adapter/geminiadapter"
 	"github.com/gatsu420/kisu-be/app/adapter/googleauthadapter"
 	answerhandlerv1 "github.com/gatsu420/kisu-be/app/handler/answer/v1"
@@ -104,7 +105,8 @@ func createServer(ctx context.Context, config commonconfig.Config) (*http.Server
 
 	metadataUsecase := metadata.NewUsecase(pgRepo, bqRepo)
 	geminiAdapter := geminiadapter.NewAdapter(genaiClient, metadataUsecase)
-	answerUsecase := answer.NewUsecase(geminiAdapter)
+	driveAdapter := driveadapter.NewAdapter(googleAuth)
+	answerUsecase := answer.NewUsecase(geminiAdapter, driveAdapter)
 
 	authHandler := authhandlerv1.NewHandler(config.HashSecret, googleAuth, metadataUsecase)
 	answerHandler := answerhandlerv1.NewHandler(metadataUsecase, answerUsecase)
