@@ -13,6 +13,7 @@ type Handler interface {
 	ValidateToolQuery(w http.ResponseWriter, r *http.Request)
 	GetToolTableMetadata(w http.ResponseWriter, r *http.Request)
 	GetAnswer(w http.ResponseWriter, r *http.Request)
+	UploadCsv(w http.ResponseWriter, r *http.Request)
 }
 
 type handlerImpl struct {

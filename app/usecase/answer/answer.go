@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"strings"
 
+	"github.com/gatsu420/kisu-be/app/adapter/driveadapter"
 	"github.com/gatsu420/kisu-be/app/adapter/geminiadapter"
 	"github.com/gatsu420/kisu-be/common/commoncrypto"
 	"github.com/gatsu420/kisu-be/common/commonctx"
@@ -47,6 +49,35 @@ func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAns
 	return GetAnswerResult{
 		Answer:               content.Content,
 		StringifiedFuncCalls: content.StringifiedTool,
+	}, nil
+}
+
+type UploadCsvArgs struct {
+	Name    string
+	Content io.Reader
+}
+
+type UploadCsvResult struct {
+	Url string
+}
+
+func (u *usecaseImpl) UploadCsv(ctx context.Context, args UploadCsvArgs) (UploadCsvResult, error) {
+	token, ok := ctx.Value(commonctx.TokenCtxKey).(*oauth2.Token)
+	if !ok {
+		return UploadCsvResult{}, errors.New("unable to get token from context")
+	}
+
+	uploadResult, err := u.driveAdapter.UploadCsv(ctx, driveadapter.UploadCsvArgs{
+		Name:    args.Name,
+		Content: args.Content,
+		Token:   token,
+	})
+	if err != nil {
+		return UploadCsvResult{}, err
+	}
+
+	return UploadCsvResult{
+		Url: uploadResult.Url,
 	}, nil
 }
 

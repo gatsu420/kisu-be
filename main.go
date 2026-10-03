@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gatsu420/kisu-be/app/adapter/driveadapter"
 	"github.com/gatsu420/kisu-be/app/adapter/geminiadapter"
 	"github.com/gatsu420/kisu-be/app/adapter/googleauthadapter"
 	answerhandlerv1 "github.com/gatsu420/kisu-be/app/handler/answer/v1"
@@ -104,7 +105,8 @@ func createServer(ctx context.Context, config commonconfig.Config) (*http.Server
 
 	metadataUsecase := metadata.NewUsecase(pgRepo, bqRepo)
 	geminiAdapter := geminiadapter.NewAdapter(genaiClient, metadataUsecase)
-	answerUsecase := answer.NewUsecase(geminiAdapter)
+	driveAdapter := driveadapter.NewAdapter(googleAuth)
+	answerUsecase := answer.NewUsecase(geminiAdapter, driveAdapter)
 
 	authHandler := authhandlerv1.NewHandler(config.HashSecret, googleAuth, metadataUsecase)
 	answerHandler := answerhandlerv1.NewHandler(metadataUsecase, answerUsecase)
@@ -121,6 +123,7 @@ func createServer(ctx context.Context, config commonconfig.Config) (*http.Server
 	mux.Handle("GET /answer/v1/validate-tool-query", withAuthRoute(http.HandlerFunc(answerHandler.ValidateToolQuery)))
 	mux.Handle("GET /answer/v1/get-tool-table-metadata", withAuthRoute(http.HandlerFunc(answerHandler.GetToolTableMetadata)))
 	mux.Handle("GET /answer/v1/answer", withAuthRoute(http.HandlerFunc(answerHandler.GetAnswer)))
+	mux.Handle("POST /answer/v1/upload", withAuthRoute(http.HandlerFunc(answerHandler.UploadCsv)))
 
 	return &http.Server{
 		Addr:    ":8080",
