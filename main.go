@@ -123,6 +123,7 @@ func createServer(ctx context.Context, config commonconfig.Config) (*http.Server
 	mux.Handle("GET /answer/v1/validate-tool-query", withAuthRoute(http.HandlerFunc(answerHandler.ValidateToolQuery)))
 	mux.Handle("GET /answer/v1/get-tool-table-metadata", withAuthRoute(http.HandlerFunc(answerHandler.GetToolTableMetadata)))
 	mux.Handle("GET /answer/v1/answer", withAuthRoute(http.HandlerFunc(answerHandler.GetAnswer)))
+	mux.Handle("POST /answer/v1/upload", withAuthRoute(http.HandlerFunc(answerHandler.UploadCsv)))
 
 	return &http.Server{
 		Addr:    ":8080",

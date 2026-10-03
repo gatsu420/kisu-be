@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/gatsu420/kisu-be/app/usecase/answer"
 	"github.com/gatsu420/kisu-be/app/usecase/metadata"
@@ -61,6 +62,61 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(GetAnswerResult{
 		Answer:               promptAnswer.Answer,
 		StringifiedFuncCalls: promptAnswer.StringifiedFuncCalls,
+	})
+	if err != nil {
+		errMsg = "unable to write response"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
+	}
+}
+
+type UploadCsvArgs struct {
+	Name    string `json:"name"`
+	Content string `json:"content"`
+}
+
+type UploadCsvResult struct {
+	Url string `json:"url"`
+}
+
+func (h *handlerImpl) UploadCsv(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	var errMsg string
+	var statusCode int
+
+	var args UploadCsvArgs
+	err := json.NewDecoder(r.Body).Decode(&args)
+	if err != nil {
+		errMsg = "unable to decode request body"
+		statusCode = http.StatusBadRequest
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
+		return
+	}
+
+	result, err := h.answerUsecase.UploadCsv(r.Context(),
+		answer.UploadCsvArgs{
+			Name:    args.Name,
+			Content: strings.NewReader(args.Content),
+		})
+	if err != nil {
+		errMsg = "unable to upload csv"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(UploadCsvResult{
+		Url: result.Url,
 	})
 	if err != nil {
 		errMsg = "unable to write response"
