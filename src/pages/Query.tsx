@@ -19,6 +19,8 @@ interface Message {
   error?: string;
 }
 
+const PAGE_SIZE = 20;
+
 export default function Query() {
   const [paramValue, setParamValue] = useState("");
   const [paramValueDraft, setParamValueDraft] = useState("");
@@ -26,6 +28,7 @@ export default function Query() {
   const [paramNameDraft, setParamNameDraft] = useState("");
   const [prompt, setPrompt] = useState("");
   const [message, setMessage] = useState<Message | null>(null);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const valueRefs = useRef<Array<HTMLParagraphElement | null>>([]);
@@ -51,6 +54,9 @@ export default function Query() {
       ? unwrapAnswer(message.result)
       : null;
   const canUpload = answerRows !== null && answerRows.length > 0;
+  // The BE returns no total count. Assume another page exists when the
+  // current page is full.
+  const canGoNext = answerRows !== null && answerRows.length >= PAGE_SIZE;
 
   useEffect(() => {
     if (paramLocked) promptRef.current?.focus();
@@ -122,10 +128,39 @@ export default function Query() {
     setResetTarget(null);
   };
 
+  // Run a query and replace the result. Return true on success.
+  const runQuery = async (queryPrompt: string, offset: number) => {
+    setLoading(true);
+    try {
+      const data = await fetchAnswer(
+        queryPrompt,
+        paramValue,
+        paramName,
+        PAGE_SIZE,
+        offset,
+      );
+      setMessage({
+        prompt: queryPrompt,
+        result: data,
+        funcCalls: getFuncCalls(data),
+      });
+      return true;
+    } catch (e) {
+      if (e instanceof Error && e.message === "unauthorized") {
+        navigate("/login");
+        return false;
+      }
+      const errMsg = e instanceof Error ? e.message : "something went wrong";
+      setMessage({ prompt: queryPrompt, error: errMsg });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAsk = async () => {
     if (!prompt.trim() || !paramLocked || loading) return;
     const currentPrompt = prompt.trim();
-    setLoading(true);
 
     // Set placeholder message (overwrites previous)
     setMessage({ prompt: currentPrompt });
@@ -133,24 +168,18 @@ export default function Query() {
     setUploadError(null);
     setResultTab("answer");
     setSaveOpen(false);
+    setPage(1);
 
-    try {
-      const data = await fetchAnswer(currentPrompt, paramValue, paramName);
-      setMessage({
-        prompt: currentPrompt,
-        result: data,
-        funcCalls: getFuncCalls(data),
-      });
-    } catch (e) {
-      if (e instanceof Error && e.message === "unauthorized") {
-        navigate("/login");
-        return;
-      }
-      const errMsg = e instanceof Error ? e.message : "something went wrong";
-      setMessage({ prompt: currentPrompt, error: errMsg });
-    } finally {
-      setLoading(false);
-    }
+    await runQuery(currentPrompt, 0);
+  };
+
+  // Load another page of the current result. The BE re-runs the query.
+  const goToPage = async (nextPage: number) => {
+    if (!message || message.error || loading || nextPage < 1) return;
+    setResultTab("answer");
+    setSaveOpen(false);
+    const ok = await runQuery(message.prompt, (nextPage - 1) * PAGE_SIZE);
+    if (ok) setPage(nextPage);
   };
 
   const handleUpload = async () => {
@@ -443,7 +472,32 @@ export default function Query() {
                     ) : message.error ? (
                       <p className={styles.error}>{message.error}</p>
                     ) : message.result !== undefined ? (
-                      <ResultTable data={message.result} />
+                      <>
+                        <ResultTable data={message.result} />
+                        {answerRows !== null && (
+                          <div className={styles.pager}>
+                            <button
+                              type="button"
+                              className={styles.pagerBtn}
+                              onClick={() => goToPage(page - 1)}
+                              disabled={page <= 1 || loading}
+                            >
+                              Prev
+                            </button>
+                            <span className={styles.pagerPage}>
+                              Page {page}
+                            </span>
+                            <button
+                              type="button"
+                              className={styles.pagerBtn}
+                              onClick={() => goToPage(page + 1)}
+                              disabled={!canGoNext || loading}
+                            >
+                              Next
+                            </button>
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <p className={styles.thinking}>Thinking...</p>
                     )}

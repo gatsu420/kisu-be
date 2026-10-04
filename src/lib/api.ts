@@ -7,11 +7,15 @@ export async function fetchAnswer(
   prompt: string,
   paramValue: string,
   paramName: string,
+  limit: number,
+  offset: number,
 ): Promise<AnswerResult> {
   const url = new URL("/answer/v1/answer", window.location.origin);
   url.searchParams.set("prompt", prompt);
   url.searchParams.set("param_value", paramValue);
   url.searchParams.set("param_name", paramName);
+  url.searchParams.set("limit", String(limit));
+  url.searchParams.set("offset", String(offset));
 
   const res = await fetch(url.toString(), {
     method: "GET",
