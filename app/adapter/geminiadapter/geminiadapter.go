@@ -19,6 +19,8 @@ type GetContentArgs struct {
 	Prompt     string
 	ParamValue string
 	UserID     string
+	Limit      string
+	Offset     string
 }
 
 type GetContentResult struct {
@@ -102,9 +104,12 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 		return GetContentResult{}, fmt.Errorf("there is no %s key inside tool param", paramName)
 	}
 
-	stringifiedToolQuery += fmt.Sprintf(" where %s in (%s)",
-		"hashed_"+paramName,
-		toolParamVal)
+	stringifiedToolQuery += fmt.Sprintf(`
+		where %s in (%s)
+		order by %s limit %s offset %s
+	`,
+		"hashed_"+paramName, toolParamVal,
+		paramName, args.Limit, args.Offset)
 
 	toolResult, err := a.metadataUsecase.CallTool(ctx, metadata.CallToolArgs{
 		Type:          toolDeclarations.toolTypes[tool.Name],

@@ -48,6 +48,8 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 		Prompt:     r.URL.Query().Get("prompt"),
 		ParamValue: r.URL.Query().Get("param_value"),
 		UserID:     userID.Value,
+		Limit:      r.URL.Query().Get("limit"),
+		Offset:     r.URL.Query().Get("offset"),
 	})
 	if err != nil {
 		errMsg = "unable to get answer"
