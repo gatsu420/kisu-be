@@ -18,6 +18,8 @@ type GetAnswerArgs struct {
 	Prompt     string
 	ParamValue string
 	UserID     string
+	Limit      string
+	Offset     string
 }
 
 type GetAnswerResult struct {
@@ -41,6 +43,8 @@ func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAns
 		Prompt:     args.Prompt,
 		ParamValue: hashedParam,
 		UserID:     args.UserID,
+		Limit:      args.Limit,
+		Offset:     args.Offset,
 	})
 	if err != nil {
 		return GetAnswerResult{}, err
