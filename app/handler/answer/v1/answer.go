@@ -44,7 +44,7 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 		commonctx.SaltCtxKey,
 		uuid.New().String())
 
-	promptAnswer, err := h.answerUsecase.GetAnswer(ctx, answer.GetAnswerArgs{
+	promptAnswer, err := h.answerUsecase.RouteTool(ctx, answer.RouteToolArgs{
 		Prompt:     r.URL.Query().Get("prompt"),
 		ParamValue: r.URL.Query().Get("param_value"),
 		UserID:     userID.Value,

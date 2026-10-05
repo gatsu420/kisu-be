@@ -8,7 +8,7 @@ import (
 )
 
 type Usecase interface {
-	GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAnswerResult, error)
+	RouteTool(ctx context.Context, args RouteToolArgs) (RouteToolResult, error)
 	UploadCsv(ctx context.Context, args UploadCsvArgs) (UploadCsvResult, error)
 }
 
