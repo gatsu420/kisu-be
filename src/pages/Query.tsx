@@ -139,6 +139,10 @@ export default function Query() {
         PAGE_SIZE,
         offset,
       );
+      // The endpoint returns rows in answer. Fail early on bad payload.
+      if (unwrapAnswer(data) === null) {
+        throw new Error("answer response has no rows");
+      }
       setMessage({
         prompt: queryPrompt,
         result: data,
@@ -651,11 +655,6 @@ function ResultTable({ data }: ResultTableProps) {
     );
   }
 
-  const textAnswer = getTextAnswer(data);
-  if (textAnswer !== null) {
-    return <p className={styles.emptyResult}>{textAnswer}</p>;
-  }
-
   return <pre className={styles.pre}>{JSON.stringify(data, null, 2)}</pre>;
 }
 
@@ -684,16 +683,6 @@ function getFuncCalls(data: unknown): string | undefined {
     if (typeof value === "string" && value.trim() !== "") return value;
   }
   return undefined;
-}
-
-function getTextAnswer(data: unknown): string | null {
-  if (data && typeof data === "object" && !Array.isArray(data)) {
-    const obj = data as Record<string, unknown>;
-    if ("answer" in obj && typeof obj.answer === "string") {
-      return obj.answer as string;
-    }
-  }
-  return null;
 }
 
 function rowsToCsv(rows: Record<string, unknown>[]): string {
