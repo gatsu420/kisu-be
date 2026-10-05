@@ -10,30 +10,26 @@ import (
 	"github.com/gatsu420/kisu-be/app/usecase/metadata"
 	"github.com/gatsu420/kisu-be/common/commonctx"
 	"github.com/gatsu420/kisu-be/common/commontype"
-	"golang.org/x/oauth2"
 	"google.golang.org/genai"
 )
 
-type GetContentArgs struct {
-	Token      *oauth2.Token
+type RouteToolArgs struct {
 	Prompt     string
 	ParamValue string
 	UserID     string
-	Limit      string
-	Offset     string
 }
 
-type GetContentResult struct {
-	Content         json.RawMessage
-	StringifiedTool string
+type RouteToolResult struct {
+	Tool json.RawMessage
+	Type commontype.ToolType
 }
 
-func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetContentResult, error) {
+func (a *adapterImpl) RouteTool(ctx context.Context, args RouteToolArgs) (RouteToolResult, error) {
 	toolDeclarations, err := a.declareTool(ctx, declareToolArgs{
 		userID: args.UserID,
 	})
 	if err != nil {
-		return GetContentResult{}, fmt.Errorf("unable to construct function declarations: %w", err)
+		return RouteToolResult{}, fmt.Errorf("unable to construct function declarations: %w", err)
 	}
 
 	geminiTools := []*genai.Tool{
@@ -51,7 +47,7 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 
 	paramName, ok := ctx.Value(commonctx.ParamNameCtxKey).(string)
 	if !ok {
-		return GetContentResult{}, errors.New("there is no param name inside context")
+		return RouteToolResult{}, errors.New("there is no param name inside context")
 	}
 
 	contents := genai.Text(fmt.Sprintf(`
@@ -61,75 +57,22 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 	`, args.ParamValue, paramName, args.Prompt))
 	resp, err := a.genaiClient.Models.GenerateContent(ctx, "gemini-3.1-flash-lite", contents, geminiConfig)
 	if err != nil {
-		return GetContentResult{}, fmt.Errorf("unable to use gemini client: %w", err)
+		return RouteToolResult{}, fmt.Errorf("unable to use gemini client: %w", err)
 	}
 
 	if len(resp.FunctionCalls()) == 0 {
-		return GetContentResult{}, errors.New("prompt is not associated with any tool")
+		return RouteToolResult{}, errors.New("prompt is not associated with any tool")
 	}
 
 	tool := resp.FunctionCalls()[0]
-	toolBuilderQuery, ok := tool.Args["builder_query"]
-	if !ok {
-		return GetContentResult{}, errors.New("there is no builder_query key inside tool args")
-	}
-
-	stringifiedToolBuilderQuery, ok := toolBuilderQuery.(string)
-	if !ok {
-		return GetContentResult{}, errors.New("unable to cast tool builder query to string")
-	}
-
-	toolQuery, ok := tool.Args["query"]
-	if !ok {
-		return GetContentResult{}, errors.New("there is no query key inside tool args")
-	}
-
-	stringifiedToolQuery, ok := toolQuery.(string)
-	if !ok {
-		return GetContentResult{}, errors.New("unable to cast tool query to string")
-	}
-
-	toolParamKey, ok := tool.Args["hashed_param"]
-	if !ok {
-		return GetContentResult{}, errors.New("there is no hashed param key inside tool args")
-	}
-
-	toolParam, ok := toolParamKey.(map[string]any)
-	if !ok {
-		return GetContentResult{}, errors.New("unable to cast tool param key to map")
-	}
-
-	toolParamVal, ok := toolParam[paramName]
-	if !ok {
-		return GetContentResult{}, fmt.Errorf("there is no %s key inside tool param", paramName)
-	}
-
-	stringifiedToolQuery += fmt.Sprintf(`
-		where %s in (%s)
-		order by %s limit %s offset %s
-	`,
-		"hashed_"+paramName, toolParamVal,
-		paramName, args.Limit, args.Offset)
-
-	toolResult, err := a.metadataUsecase.CallTool(ctx, metadata.CallToolArgs{
-		Type:          toolDeclarations.toolTypes[tool.Name],
-		TableLocation: tool.Name,
-		BuilderQuery:  stringifiedToolBuilderQuery,
-		Query:         stringifiedToolQuery,
-		Token:         args.Token,
-	})
+	marshaledTool, err := json.Marshal(tool)
 	if err != nil {
-		return GetContentResult{}, fmt.Errorf("unable to call tool: %w", err)
+		return RouteToolResult{}, fmt.Errorf("unable to marshal tool: %w", err)
 	}
 
-	marshaledTool, err := json.MarshalIndent(tool, "", " ")
-	if err != nil {
-		return GetContentResult{}, fmt.Errorf("unable to marshal tool: %w", err)
-	}
-
-	return GetContentResult{
-		Content:         toolResult.Result,
-		StringifiedTool: string(marshaledTool),
+	return RouteToolResult{
+		Tool: marshaledTool,
+		Type: toolDeclarations.toolTypes[tool.Name],
 	}, nil
 }
 

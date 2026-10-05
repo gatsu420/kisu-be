@@ -48,8 +48,6 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 		Prompt:     r.URL.Query().Get("prompt"),
 		ParamValue: r.URL.Query().Get("param_value"),
 		UserID:     userID.Value,
-		Limit:      r.URL.Query().Get("limit"),
-		Offset:     r.URL.Query().Get("offset"),
 	})
 	if err != nil {
 		errMsg = "unable to get answer"
@@ -61,9 +59,25 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	toolResult, err := h.metadataUsecase.CallTool(ctx, metadata.CallToolArgs{
+		Tool:   promptAnswer.Tool,
+		Type:   promptAnswer.Type,
+		Limit:  r.URL.Query().Get("limit"),
+		Offset: r.URL.Query().Get("offset"),
+	})
+	if err != nil {
+		errMsg = "unable to call tool"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
+		return
+	}
+
 	err = json.NewEncoder(w).Encode(GetAnswerResult{
-		Answer:               promptAnswer.Answer,
-		StringifiedFuncCalls: promptAnswer.StringifiedFuncCalls,
+		Answer:               toolResult.Result,
+		StringifiedFuncCalls: toolResult.StringifiedTool,
 	})
 	if err != nil {
 		errMsg = "unable to write response"
