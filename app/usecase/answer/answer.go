@@ -32,7 +32,7 @@ func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAns
 		return GetAnswerResult{}, err
 	}
 
-	content, err := u.geminiAdapter.GetContent(ctx, geminiadapter.GetContentArgs{
+	content, err := u.geminiAdapter.RouteTool(ctx, geminiadapter.RouteToolArgs{
 		Prompt:     args.Prompt,
 		ParamValue: hashedParam,
 		UserID:     args.UserID,

@@ -13,23 +13,23 @@ import (
 	"google.golang.org/genai"
 )
 
-type GetContentArgs struct {
+type RouteToolArgs struct {
 	Prompt     string
 	ParamValue string
 	UserID     string
 }
 
-type GetContentResult struct {
+type RouteToolResult struct {
 	Tool json.RawMessage
 	Type commontype.ToolType
 }
 
-func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetContentResult, error) {
+func (a *adapterImpl) RouteTool(ctx context.Context, args RouteToolArgs) (RouteToolResult, error) {
 	toolDeclarations, err := a.declareTool(ctx, declareToolArgs{
 		userID: args.UserID,
 	})
 	if err != nil {
-		return GetContentResult{}, fmt.Errorf("unable to construct function declarations: %w", err)
+		return RouteToolResult{}, fmt.Errorf("unable to construct function declarations: %w", err)
 	}
 
 	geminiTools := []*genai.Tool{
@@ -47,7 +47,7 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 
 	paramName, ok := ctx.Value(commonctx.ParamNameCtxKey).(string)
 	if !ok {
-		return GetContentResult{}, errors.New("there is no param name inside context")
+		return RouteToolResult{}, errors.New("there is no param name inside context")
 	}
 
 	contents := genai.Text(fmt.Sprintf(`
@@ -57,20 +57,20 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 	`, args.ParamValue, paramName, args.Prompt))
 	resp, err := a.genaiClient.Models.GenerateContent(ctx, "gemini-3.1-flash-lite", contents, geminiConfig)
 	if err != nil {
-		return GetContentResult{}, fmt.Errorf("unable to use gemini client: %w", err)
+		return RouteToolResult{}, fmt.Errorf("unable to use gemini client: %w", err)
 	}
 
 	if len(resp.FunctionCalls()) == 0 {
-		return GetContentResult{}, errors.New("prompt is not associated with any tool")
+		return RouteToolResult{}, errors.New("prompt is not associated with any tool")
 	}
 
 	tool := resp.FunctionCalls()[0]
 	marshaledTool, err := json.Marshal(tool)
 	if err != nil {
-		return GetContentResult{}, fmt.Errorf("unable to marshal tool: %w", err)
+		return RouteToolResult{}, fmt.Errorf("unable to marshal tool: %w", err)
 	}
 
-	return GetContentResult{
+	return RouteToolResult{
 		Tool: marshaledTool,
 		Type: toolDeclarations.toolTypes[tool.Name],
 	}, nil

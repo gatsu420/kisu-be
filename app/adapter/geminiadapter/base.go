@@ -8,7 +8,7 @@ import (
 )
 
 type Adapter interface {
-	GetContent(ctx context.Context, args GetContentArgs) (GetContentResult, error)
+	RouteTool(ctx context.Context, args RouteToolArgs) (RouteToolResult, error)
 }
 
 type adapterImpl struct {
