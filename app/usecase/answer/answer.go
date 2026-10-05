@@ -15,21 +15,21 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type GetAnswerArgs struct {
+type RouteToolArgs struct {
 	Prompt     string
 	ParamValue string
 	UserID     string
 }
 
-type GetAnswerResult struct {
+type RouteToolResult struct {
 	Tool json.RawMessage
 	Type commontype.ToolType
 }
 
-func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAnswerResult, error) {
+func (u *usecaseImpl) RouteTool(ctx context.Context, args RouteToolArgs) (RouteToolResult, error) {
 	hashedParam, err := u.hashParamValue(ctx, args.ParamValue)
 	if err != nil {
-		return GetAnswerResult{}, err
+		return RouteToolResult{}, err
 	}
 
 	content, err := u.geminiAdapter.RouteTool(ctx, geminiadapter.RouteToolArgs{
@@ -38,10 +38,10 @@ func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAns
 		UserID:     args.UserID,
 	})
 	if err != nil {
-		return GetAnswerResult{}, err
+		return RouteToolResult{}, err
 	}
 
-	return GetAnswerResult{
+	return RouteToolResult{
 		Tool: content.Tool,
 		Type: content.Type,
 	}, nil
