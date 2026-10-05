@@ -60,11 +60,10 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	toolResult, err := h.metadataUsecase.CallTool(ctx, metadata.CallToolArgs{
-		Tool:          promptAnswer.Tool,
-		Type:          promptAnswer.Type,
-		TableLocation: promptAnswer.Tool.Name,
-		Limit:         r.URL.Query().Get("limit"),
-		Offset:        r.URL.Query().Get("offset"),
+		Tool:   promptAnswer.Tool,
+		Type:   promptAnswer.Type,
+		Limit:  r.URL.Query().Get("limit"),
+		Offset: r.URL.Query().Get("offset"),
 	})
 	if err != nil {
 		errMsg = "unable to call tool"

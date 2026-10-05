@@ -2,6 +2,7 @@ package geminiadapter
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -19,7 +20,7 @@ type GetContentArgs struct {
 }
 
 type GetContentResult struct {
-	Tool *genai.FunctionCall
+	Tool json.RawMessage
 	Type commontype.ToolType
 }
 
@@ -64,8 +65,13 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 	}
 
 	tool := resp.FunctionCalls()[0]
+	marshaledTool, err := json.Marshal(tool)
+	if err != nil {
+		return GetContentResult{}, fmt.Errorf("unable to marshal tool: %w", err)
+	}
+
 	return GetContentResult{
-		Tool: tool,
+		Tool: marshaledTool,
 		Type: toolDeclarations.toolTypes[tool.Name],
 	}, nil
 }

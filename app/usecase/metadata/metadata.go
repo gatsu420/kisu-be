@@ -269,11 +269,10 @@ func (u *usecaseImpl) GetTool(ctx context.Context, args GetToolArgs) (GetToolRes
 }
 
 type CallToolArgs struct {
-	Tool          *genai.FunctionCall
-	Type          commontype.ToolType
-	TableLocation string
-	Limit         string
-	Offset        string
+	Tool   json.RawMessage
+	Type   commontype.ToolType
+	Limit  string
+	Offset string
 }
 
 type CallToolResult struct {
@@ -297,17 +296,23 @@ func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallTool
 		return CallToolResult{}, errors.New("unable to get salt from context")
 	}
 
-	var project, dataset, tableName string
-	if args.Type == commontype.TableToolType {
-		locationParts := strings.Split(args.TableLocation, ".")
-		if len(locationParts) != 3 {
-			return CallToolResult{}, errors.New("table location for table tool must be in the form of \"project.dataset.table_name\"")
-		}
-
-		project, dataset, tableName = locationParts[0], locationParts[1], locationParts[2]
+	var tool *genai.FunctionCall
+	err := json.Unmarshal(args.Tool, &tool)
+	if err != nil {
+		return CallToolResult{}, fmt.Errorf("unable to unmarshal tool: %w", err)
 	}
 
-	builderQuery, ok := args.Tool.Args["builder_query"]
+	var project, dataset, tableName string
+	if args.Type == commontype.TableToolType {
+		nameParts := strings.Split(tool.Name, ".")
+		if len(nameParts) != 3 {
+			return CallToolResult{}, errors.New("name for table tool must be in the form of \"{string}.{string}.{string}\"")
+		}
+
+		project, dataset, tableName = nameParts[0], nameParts[1], nameParts[2]
+	}
+
+	builderQuery, ok := tool.Args["builder_query"]
 	if !ok {
 		return CallToolResult{}, errors.New("there is no builder_query key inside tool args")
 	}
@@ -317,7 +322,7 @@ func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallTool
 		return CallToolResult{}, errors.New("unable to cast tool builder query to string")
 	}
 
-	query, ok := args.Tool.Args["query"]
+	query, ok := tool.Args["query"]
 	if !ok {
 		return CallToolResult{}, errors.New("there is no query key inside tool args")
 	}
@@ -327,7 +332,7 @@ func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallTool
 		return CallToolResult{}, errors.New("unable to cast tool query to string")
 	}
 
-	paramKey, ok := args.Tool.Args["hashed_param"]
+	paramKey, ok := tool.Args["hashed_param"]
 	if !ok {
 		return CallToolResult{}, errors.New("there is no hashed param key inside tool args")
 	}

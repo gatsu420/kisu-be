@@ -2,6 +2,7 @@ package answer
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"strings"
@@ -12,7 +13,6 @@ import (
 	"github.com/gatsu420/kisu-be/common/commonctx"
 	"github.com/gatsu420/kisu-be/common/commontype"
 	"golang.org/x/oauth2"
-	"google.golang.org/genai"
 )
 
 type GetAnswerArgs struct {
@@ -22,7 +22,7 @@ type GetAnswerArgs struct {
 }
 
 type GetAnswerResult struct {
-	Tool *genai.FunctionCall
+	Tool json.RawMessage
 	Type commontype.ToolType
 }
 
