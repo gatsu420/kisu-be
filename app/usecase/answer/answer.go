@@ -2,7 +2,6 @@ package answer
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"strings"
@@ -11,20 +10,20 @@ import (
 	"github.com/gatsu420/kisu-be/app/adapter/geminiadapter"
 	"github.com/gatsu420/kisu-be/common/commoncrypto"
 	"github.com/gatsu420/kisu-be/common/commonctx"
+	"github.com/gatsu420/kisu-be/common/commontype"
 	"golang.org/x/oauth2"
+	"google.golang.org/genai"
 )
 
 type GetAnswerArgs struct {
 	Prompt     string
 	ParamValue string
 	UserID     string
-	Limit      string
-	Offset     string
 }
 
 type GetAnswerResult struct {
-	Answer               json.RawMessage
-	StringifiedFuncCalls string
+	Tool *genai.FunctionCall
+	Type commontype.ToolType
 }
 
 func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAnswerResult, error) {
@@ -33,26 +32,18 @@ func (u *usecaseImpl) GetAnswer(ctx context.Context, args GetAnswerArgs) (GetAns
 		return GetAnswerResult{}, err
 	}
 
-	token, ok := ctx.Value(commonctx.TokenCtxKey).(*oauth2.Token)
-	if !ok {
-		return GetAnswerResult{}, errors.New("unable to get token from context")
-	}
-
 	content, err := u.geminiAdapter.GetContent(ctx, geminiadapter.GetContentArgs{
-		Token:      token,
 		Prompt:     args.Prompt,
 		ParamValue: hashedParam,
 		UserID:     args.UserID,
-		Limit:      args.Limit,
-		Offset:     args.Offset,
 	})
 	if err != nil {
 		return GetAnswerResult{}, err
 	}
 
 	return GetAnswerResult{
-		Answer:               content.Content,
-		StringifiedFuncCalls: content.StringifiedTool,
+		Tool: content.Tool,
+		Type: content.Type,
 	}, nil
 }
 

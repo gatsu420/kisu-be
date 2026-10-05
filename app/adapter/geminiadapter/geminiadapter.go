@@ -2,7 +2,6 @@ package geminiadapter
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -10,22 +9,18 @@ import (
 	"github.com/gatsu420/kisu-be/app/usecase/metadata"
 	"github.com/gatsu420/kisu-be/common/commonctx"
 	"github.com/gatsu420/kisu-be/common/commontype"
-	"golang.org/x/oauth2"
 	"google.golang.org/genai"
 )
 
 type GetContentArgs struct {
-	Token      *oauth2.Token
 	Prompt     string
 	ParamValue string
 	UserID     string
-	Limit      string
-	Offset     string
 }
 
 type GetContentResult struct {
-	Content         json.RawMessage
-	StringifiedTool string
+	Tool *genai.FunctionCall
+	Type commontype.ToolType
 }
 
 func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetContentResult, error) {
@@ -69,67 +64,9 @@ func (a *adapterImpl) GetContent(ctx context.Context, args GetContentArgs) (GetC
 	}
 
 	tool := resp.FunctionCalls()[0]
-	toolBuilderQuery, ok := tool.Args["builder_query"]
-	if !ok {
-		return GetContentResult{}, errors.New("there is no builder_query key inside tool args")
-	}
-
-	stringifiedToolBuilderQuery, ok := toolBuilderQuery.(string)
-	if !ok {
-		return GetContentResult{}, errors.New("unable to cast tool builder query to string")
-	}
-
-	toolQuery, ok := tool.Args["query"]
-	if !ok {
-		return GetContentResult{}, errors.New("there is no query key inside tool args")
-	}
-
-	stringifiedToolQuery, ok := toolQuery.(string)
-	if !ok {
-		return GetContentResult{}, errors.New("unable to cast tool query to string")
-	}
-
-	toolParamKey, ok := tool.Args["hashed_param"]
-	if !ok {
-		return GetContentResult{}, errors.New("there is no hashed param key inside tool args")
-	}
-
-	toolParam, ok := toolParamKey.(map[string]any)
-	if !ok {
-		return GetContentResult{}, errors.New("unable to cast tool param key to map")
-	}
-
-	toolParamVal, ok := toolParam[paramName]
-	if !ok {
-		return GetContentResult{}, fmt.Errorf("there is no %s key inside tool param", paramName)
-	}
-
-	stringifiedToolQuery += fmt.Sprintf(`
-		where %s in (%s)
-		order by %s limit %s offset %s
-	`,
-		"hashed_"+paramName, toolParamVal,
-		paramName, args.Limit, args.Offset)
-
-	toolResult, err := a.metadataUsecase.CallTool(ctx, metadata.CallToolArgs{
-		Type:          toolDeclarations.toolTypes[tool.Name],
-		TableLocation: tool.Name,
-		BuilderQuery:  stringifiedToolBuilderQuery,
-		Query:         stringifiedToolQuery,
-		Token:         args.Token,
-	})
-	if err != nil {
-		return GetContentResult{}, fmt.Errorf("unable to call tool: %w", err)
-	}
-
-	marshaledTool, err := json.MarshalIndent(tool, "", " ")
-	if err != nil {
-		return GetContentResult{}, fmt.Errorf("unable to marshal tool: %w", err)
-	}
-
 	return GetContentResult{
-		Content:         toolResult.Result,
-		StringifiedTool: string(marshaledTool),
+		Tool: tool,
+		Type: toolDeclarations.toolTypes[tool.Name],
 	}, nil
 }
 

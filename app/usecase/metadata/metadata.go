@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/gatsu420/kisu-be/app/repository/bqrepo"
@@ -12,6 +13,7 @@ import (
 	"github.com/gatsu420/kisu-be/common/commonctx"
 	"github.com/gatsu420/kisu-be/common/commontype"
 	"golang.org/x/oauth2"
+	"google.golang.org/genai"
 )
 
 type AddAuthStateArgs struct {
@@ -267,18 +269,24 @@ func (u *usecaseImpl) GetTool(ctx context.Context, args GetToolArgs) (GetToolRes
 }
 
 type CallToolArgs struct {
+	Tool          *genai.FunctionCall
 	Type          commontype.ToolType
 	TableLocation string
-	BuilderQuery  string
-	Query         string
-	Token         *oauth2.Token
+	Limit         string
+	Offset        string
 }
 
 type CallToolResult struct {
-	Result json.RawMessage
+	Result          json.RawMessage
+	StringifiedTool string
 }
 
 func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallToolResult, error) {
+	token, ok := ctx.Value(commonctx.TokenCtxKey).(*oauth2.Token)
+	if !ok {
+		return CallToolResult{}, errors.New("unable to get token from context")
+	}
+
 	paramName, ok := ctx.Value(commonctx.ParamNameCtxKey).(string)
 	if !ok {
 		return CallToolResult{}, errors.New("unable to get param name from context")
@@ -299,6 +307,53 @@ func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallTool
 		project, dataset, tableName = locationParts[0], locationParts[1], locationParts[2]
 	}
 
+	builderQuery, ok := args.Tool.Args["builder_query"]
+	if !ok {
+		return CallToolResult{}, errors.New("there is no builder_query key inside tool args")
+	}
+
+	stringifiedBuilderQuery, ok := builderQuery.(string)
+	if !ok {
+		return CallToolResult{}, errors.New("unable to cast tool builder query to string")
+	}
+
+	query, ok := args.Tool.Args["query"]
+	if !ok {
+		return CallToolResult{}, errors.New("there is no query key inside tool args")
+	}
+
+	stringifiedQuery, ok := query.(string)
+	if !ok {
+		return CallToolResult{}, errors.New("unable to cast tool query to string")
+	}
+
+	paramKey, ok := args.Tool.Args["hashed_param"]
+	if !ok {
+		return CallToolResult{}, errors.New("there is no hashed param key inside tool args")
+	}
+
+	param, ok := paramKey.(map[string]any)
+	if !ok {
+		return CallToolResult{}, errors.New("unable to cast tool param key to map")
+	}
+
+	paramVal, ok := param[paramName]
+	if !ok {
+		return CallToolResult{}, fmt.Errorf("there is no %s key inside tool param", paramName)
+	}
+
+	stringifiedQuery += fmt.Sprintf(`
+		where %s in (%s)
+		order by %s limit %s offset %s
+	`,
+		"hashed_"+paramName, paramVal,
+		paramName, args.Limit, args.Offset)
+
+	marshaledTool, err := json.MarshalIndent(args.Tool, "", " ")
+	if err != nil {
+		return CallToolResult{}, fmt.Errorf("unable to marshal tool: %w", err)
+	}
+
 	result, err := u.bqRepo.CallTool(ctx, bqrepo.CallToolArgs{
 		ParamName:    paramName,
 		Salt:         salt,
@@ -306,9 +361,9 @@ func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallTool
 		Project:      project,
 		Dataset:      dataset,
 		TableName:    tableName,
-		BuilderQuery: args.BuilderQuery,
-		Query:        args.Query,
-		Token:        args.Token,
+		BuilderQuery: stringifiedBuilderQuery,
+		Query:        stringifiedQuery,
+		Token:        token,
 	})
 	if err != nil {
 		return CallToolResult{}, err
@@ -320,7 +375,8 @@ func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallTool
 	}
 
 	return CallToolResult{
-		Result: marshaledRows,
+		Result:          marshaledRows,
+		StringifiedTool: string(marshaledTool),
 	}, nil
 }
 
