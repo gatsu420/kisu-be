@@ -106,7 +106,7 @@ func createServer(ctx context.Context, config commonconfig.Config) (*http.Server
 	metadataUsecase := metadata.NewUsecase(pgRepo, bqRepo)
 	geminiAdapter := geminiadapter.NewAdapter(genaiClient, metadataUsecase)
 	driveAdapter := driveadapter.NewAdapter(googleAuth)
-	answerUsecase := answer.NewUsecase(geminiAdapter, driveAdapter)
+	answerUsecase := answer.NewUsecase(geminiAdapter, driveAdapter, pgRepo)
 
 	authHandler := authhandlerv1.NewHandler(config.HashSecret, googleAuth, metadataUsecase)
 	answerHandler := answerhandlerv1.NewHandler(config.HashSecret, metadataUsecase, answerUsecase)
@@ -125,6 +125,10 @@ func createServer(ctx context.Context, config commonconfig.Config) (*http.Server
 	mux.Handle("GET /answer/v1/route", withAuthRoute(http.HandlerFunc(answerHandler.RouteTool)))
 	mux.Handle("GET /answer/v1/answer", withAuthRoute(http.HandlerFunc(answerHandler.GetAnswer)))
 	mux.Handle("POST /answer/v1/upload", withAuthRoute(http.HandlerFunc(answerHandler.UploadCsv)))
+	mux.Handle("POST /answer/v1/bookmark", withAuthRoute(http.HandlerFunc(answerHandler.AddBookmark)))
+	mux.Handle("GET /answer/v1/bookmarks", withAuthRoute(http.HandlerFunc(answerHandler.ListBookmark)))
+	mux.Handle("GET /answer/v1/bookmark", withAuthRoute(http.HandlerFunc(answerHandler.GetBookmark)))
+	mux.Handle("DELETE /answer/v1/bookmark", withAuthRoute(http.HandlerFunc(answerHandler.DeleteBookmark)))
 
 	return &http.Server{
 		Addr:    ":8080",

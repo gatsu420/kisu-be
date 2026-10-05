@@ -1,6 +1,6 @@
 \restrict dbmate
 
--- Dumped from database version 17.11 (fcae950)
+-- Dumped from database version 17.11 (7d7ea2a)
 -- Dumped by pg_dump version 17.10
 
 SET statement_timeout = 0;
@@ -18,6 +18,23 @@ SET row_security = off;
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
+
+--
+-- Name: bookmark; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.bookmark (
+    id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    name text NOT NULL,
+    param_name text NOT NULL,
+    param_value text NOT NULL,
+    query text NOT NULL,
+    hashed_tool text NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
 
 --
 -- Name: example; Type: TABLE; Schema: public; Owner: -
@@ -102,6 +119,14 @@ CREATE TABLE public.user_token (
 
 
 --
+-- Name: bookmark bookmark_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bookmark
+    ADD CONSTRAINT bookmark_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: example example_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -165,6 +190,14 @@ CREATE UNIQUE INDEX user_id_index ON public.user_token USING btree (user_id);
 
 
 --
+-- Name: bookmark bookmark_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bookmark
+    ADD CONSTRAINT bookmark_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_information(id);
+
+
+--
 -- Name: example example_tool_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -218,4 +251,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260925134308'),
     ('20260926044424'),
     ('20261001094943'),
-    ('20261002104256');
+    ('20261002104256'),
+    ('20261005030105');
