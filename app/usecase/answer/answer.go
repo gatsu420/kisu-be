@@ -17,7 +17,9 @@ import (
 
 type RouteToolArgs struct {
 	Prompt     string
+	ParamName  string
 	ParamValue string
+	Salt       string
 	UserID     string
 }
 
@@ -27,14 +29,18 @@ type RouteToolResult struct {
 }
 
 func (u *usecaseImpl) RouteTool(ctx context.Context, args RouteToolArgs) (RouteToolResult, error) {
-	hashedParam, err := u.hashParamValue(ctx, args.ParamValue)
+	hashedParam, err := u.hashParamValue(ctx, hashParamValueArgs{
+		value: args.ParamValue,
+		salt:  args.Salt,
+	})
 	if err != nil {
 		return RouteToolResult{}, err
 	}
 
 	content, err := u.geminiAdapter.RouteTool(ctx, geminiadapter.RouteToolArgs{
 		Prompt:     args.Prompt,
-		ParamValue: hashedParam,
+		ParamName:  args.ParamName,
+		ParamValue: hashedParam.value,
 		UserID:     args.UserID,
 	})
 	if err != nil {
@@ -76,15 +82,22 @@ func (u *usecaseImpl) UploadCsv(ctx context.Context, args UploadCsvArgs) (Upload
 	}, nil
 }
 
-func (u *usecaseImpl) hashParamValue(ctx context.Context, value string) (string, error) {
-	parts := strings.FieldsFunc(value, func(r rune) bool {
+type hashParamValueArgs struct {
+	value string
+	salt  string
+}
+
+type hashParamValueResult struct {
+	value string
+}
+
+func (u *usecaseImpl) hashParamValue(ctx context.Context, args hashParamValueArgs) (hashParamValueResult, error) {
+	parts := strings.FieldsFunc(args.value, func(r rune) bool {
 		return r == ',' || r == '\n'
 	})
-	salt, ok := ctx.Value(commonctx.SaltCtxKey).(string)
-	if !ok {
-		return "", errors.New("unable to get salt from context")
-	}
+	hashedParts := commoncrypto.HashStringSlice(parts, args.salt)
 
-	hashedParts := commoncrypto.HashStringSlice(parts, salt)
-	return strings.Join(hashedParts, ","), nil
+	return hashParamValueResult{
+		value: strings.Join(hashedParts, ","),
+	}, nil
 }

@@ -1,26 +1,32 @@
 package answerhandlerv1
 
 import (
-	"context"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gatsu420/kisu-be/app/usecase/answer"
 	"github.com/gatsu420/kisu-be/app/usecase/metadata"
+	"github.com/gatsu420/kisu-be/common/commoncrypto"
 	"github.com/gatsu420/kisu-be/common/commonctx"
 	"github.com/gatsu420/kisu-be/common/commonerr"
+	"github.com/gatsu420/kisu-be/common/commonhttp"
 	"github.com/gatsu420/kisu-be/common/commontype"
 	"github.com/google/uuid"
 )
 
-type GetAnswerResult struct {
-	Answer               json.RawMessage `json:"answer"`
-	StringifiedFuncCalls string          `json:"stringified_func_calls"`
+type RouteToolResult struct {
+	Tool json.RawMessage     `json:"tool"`
+	Type commontype.ToolType `json:"type"`
 }
 
-func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
+func (h *handlerImpl) RouteTool(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	var errMsg string
@@ -35,18 +41,12 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// The less uglier way is to construct ctx value as struct, but
-	// it's no biggie for now.
-	ctx := context.WithValue(r.Context(),
-		commonctx.ParamNameCtxKey,
-		r.URL.Query().Get("param_name"))
-	ctx = context.WithValue(ctx,
-		commonctx.SaltCtxKey,
-		uuid.New().String())
-
-	promptAnswer, err := h.answerUsecase.RouteTool(ctx, answer.RouteToolArgs{
+	salt := uuid.New().String()
+	result, err := h.answerUsecase.RouteTool(r.Context(), answer.RouteToolArgs{
 		Prompt:     r.URL.Query().Get("prompt"),
+		ParamName:  r.URL.Query().Get("param_name"),
 		ParamValue: r.URL.Query().Get("param_value"),
+		Salt:       salt,
 		UserID:     userID.Value,
 	})
 	if err != nil {
@@ -59,9 +59,150 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	toolResult, err := h.metadataUsecase.CallTool(ctx, metadata.CallToolArgs{
-		Tool:   promptAnswer.Tool,
-		Type:   promptAnswer.Type,
+	marshaledResult, err := json.Marshal(result)
+	if err != nil {
+		errMsg = "unable to marshal result of tool routing"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
+		return
+	}
+
+	hashedResult := buildRoute(buildRouteArgs{
+		secret: h.hashSecret,
+		str:    string(marshaledResult),
+		salt:   salt,
+	})
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     commonhttp.RouteToolResultCookieName,
+		Value:    hashedResult.route,
+		Path:     commonhttp.CookiePath,
+		MaxAge:   commonhttp.CookieMaxAge,
+		HttpOnly: commonhttp.CookieHttpOnly,
+		Secure:   commonhttp.CookieSecure,
+		SameSite: commonhttp.CookieSameSite,
+	})
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("tool is routed"))
+}
+
+type buildRouteArgs struct {
+	secret string
+	str    string
+	salt   string
+}
+
+type buildRouteResult struct {
+	route string
+}
+
+func buildRoute(args buildRouteArgs) buildRouteResult {
+	prefix := base64.URLEncoding.EncodeToString([]byte(
+		args.str,
+	)) +
+		"." + args.salt +
+		"." + strconv.FormatInt(time.Now().UnixMicro(), 10)
+	digest := commoncrypto.HashString(commoncrypto.HashStringArgs{
+		Secret: args.secret,
+		Str:    prefix,
+		Salt:   args.salt,
+	})
+
+	return buildRouteResult{
+		route: base64.URLEncoding.EncodeToString([]byte(
+			prefix + "." + digest.Digest,
+		)),
+	}
+}
+
+type GetAnswerResult struct {
+	Answer               json.RawMessage `json:"answer"`
+	StringifiedFuncCalls string          `json:"stringified_func_calls"`
+}
+
+func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	var errMsg string
+	var statusCode int
+
+	routeCookie, err := r.Cookie(commonhttp.RouteToolResultCookieName)
+	if err != nil {
+		statusCode = http.StatusUnauthorized
+		slog.Error("unable to get route cookie",
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
+		return
+	}
+
+	decodedCookie, err := base64.URLEncoding.DecodeString(routeCookie.Value)
+	if err != nil {
+		errMsg = "unable to decode route cookie"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
+		return
+	}
+	decodedCookieParts := strings.Split(string(decodedCookie), ".")
+	routeVerification, err := verifyRoute(verifyRouteArgs{
+		secret: h.hashSecret,
+		cookie: routeCookie.Value,
+	})
+	if err != nil {
+		errMsg = "unable to verify route"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
+		return
+	}
+
+	if !routeVerification.isVerified {
+		if routeVerification.failedVerificationMsg != "" {
+			errMsg = routeVerification.failedVerificationMsg
+		} else {
+			errMsg = "route is not verified"
+		}
+		statusCode = http.StatusUnauthorized
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode))
+		http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
+		return
+	}
+
+	decodedRouteStr, err := base64.URLEncoding.DecodeString(decodedCookieParts[0])
+	if err != nil {
+		errMsg = "unable to decode route str"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
+		return
+	}
+	var route RouteToolResult
+	err = json.Unmarshal([]byte(string(decodedRouteStr)), &route)
+	if err != nil {
+		errMsg = "unable to unmarshal route cookie parts"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
+		return
+	}
+
+	toolResult, err := h.metadataUsecase.CallTool(r.Context(), metadata.CallToolArgs{
+		Salt:   decodedCookieParts[1],
+		Tool:   route.Tool,
+		Type:   route.Type,
 		Limit:  r.URL.Query().Get("limit"),
 		Offset: r.URL.Query().Get("offset"),
 	})
@@ -87,6 +228,55 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 			slog.String(commonerr.ErrLogKey, err.Error()))
 		http.Error(w, errMsg, statusCode)
 	}
+}
+
+type verifyRouteArgs struct {
+	secret string
+	cookie string
+}
+
+type verifyRouteResult struct {
+	isVerified            bool
+	failedVerificationMsg string
+}
+
+func verifyRoute(args verifyRouteArgs) (verifyRouteResult, error) {
+	decodedCookie, err := base64.URLEncoding.DecodeString(args.cookie)
+	if err != nil {
+		return verifyRouteResult{}, fmt.Errorf("unable to decode cookie: %w", err)
+	}
+
+	cookieParts := strings.Split(string(decodedCookie), ".")
+	comparison, err := commoncrypto.VerifyHashedString(commoncrypto.VerifyHashedStringArgs{
+		Secret: args.secret,
+		Str: cookieParts[0] +
+			"." + cookieParts[1] +
+			"." + cookieParts[2],
+		Salt:   cookieParts[1],
+		Digest: cookieParts[3],
+	})
+	if err != nil {
+		return verifyRouteResult{}, err
+	}
+
+	if !comparison.IsSameHash {
+		return verifyRouteResult{
+			failedVerificationMsg: "cookie state does not match URL param",
+		}, nil
+	}
+
+	epoch, err := strconv.Atoi(cookieParts[2])
+	if err != nil {
+		return verifyRouteResult{}, errors.New("unable to cast epoch from cookie state to int")
+	}
+
+	if time.Since(time.UnixMicro(int64(epoch))) > 1*time.Minute {
+		return verifyRouteResult{}, nil
+	}
+
+	return verifyRouteResult{
+		isVerified: true,
+	}, nil
 }
 
 type UploadCsvArgs struct {

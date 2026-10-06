@@ -269,6 +269,7 @@ func (u *usecaseImpl) GetTool(ctx context.Context, args GetToolArgs) (GetToolRes
 }
 
 type CallToolArgs struct {
+	Salt   string
 	Tool   json.RawMessage
 	Type   commontype.ToolType
 	Limit  string
@@ -284,16 +285,6 @@ func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallTool
 	token, ok := ctx.Value(commonctx.TokenCtxKey).(*oauth2.Token)
 	if !ok {
 		return CallToolResult{}, errors.New("unable to get token from context")
-	}
-
-	paramName, ok := ctx.Value(commonctx.ParamNameCtxKey).(string)
-	if !ok {
-		return CallToolResult{}, errors.New("unable to get param name from context")
-	}
-
-	salt, ok := ctx.Value(commonctx.SaltCtxKey).(string)
-	if !ok {
-		return CallToolResult{}, errors.New("unable to get salt from context")
 	}
 
 	var tool *genai.FunctionCall
@@ -342,6 +333,16 @@ func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallTool
 		return CallToolResult{}, errors.New("unable to cast tool param key to map")
 	}
 
+	// The tool carries exactly one param name as the key of hashed_param.
+	var paramName string
+	for name := range param {
+		paramName = name
+		break
+	}
+	if paramName == "" {
+		return CallToolResult{}, errors.New("there is no param name inside tool param")
+	}
+
 	paramVal, ok := param[paramName]
 	if !ok {
 		return CallToolResult{}, fmt.Errorf("there is no %s key inside tool param", paramName)
@@ -361,7 +362,7 @@ func (u *usecaseImpl) CallTool(ctx context.Context, args CallToolArgs) (CallTool
 
 	result, err := u.bqRepo.CallTool(ctx, bqrepo.CallToolArgs{
 		ParamName:    paramName,
-		Salt:         salt,
+		Salt:         args.Salt,
 		Type:         args.Type,
 		Project:      project,
 		Dataset:      dataset,

@@ -109,7 +109,7 @@ func createServer(ctx context.Context, config commonconfig.Config) (*http.Server
 	answerUsecase := answer.NewUsecase(geminiAdapter, driveAdapter)
 
 	authHandler := authhandlerv1.NewHandler(config.HashSecret, googleAuth, metadataUsecase)
-	answerHandler := answerhandlerv1.NewHandler(metadataUsecase, answerUsecase)
+	answerHandler := answerhandlerv1.NewHandler(config.HashSecret, metadataUsecase, answerUsecase)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /auth/v1/get-permission", authHandler.GetPermission)
@@ -122,6 +122,7 @@ func createServer(ctx context.Context, config commonconfig.Config) (*http.Server
 	mux.Handle("GET /answer/v1/tool", withAuthRoute(http.HandlerFunc(answerHandler.GetTool)))
 	mux.Handle("GET /answer/v1/validate-tool-query", withAuthRoute(http.HandlerFunc(answerHandler.ValidateToolQuery)))
 	mux.Handle("GET /answer/v1/get-tool-table-metadata", withAuthRoute(http.HandlerFunc(answerHandler.GetToolTableMetadata)))
+	mux.Handle("GET /answer/v1/route", withAuthRoute(http.HandlerFunc(answerHandler.RouteTool)))
 	mux.Handle("GET /answer/v1/answer", withAuthRoute(http.HandlerFunc(answerHandler.GetAnswer)))
 	mux.Handle("POST /answer/v1/upload", withAuthRoute(http.HandlerFunc(answerHandler.UploadCsv)))
 
