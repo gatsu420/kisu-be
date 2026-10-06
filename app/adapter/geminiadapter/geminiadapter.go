@@ -8,13 +8,13 @@ import (
 	"strings"
 
 	"github.com/gatsu420/kisu-be/app/usecase/metadata"
-	"github.com/gatsu420/kisu-be/common/commonctx"
 	"github.com/gatsu420/kisu-be/common/commontype"
 	"google.golang.org/genai"
 )
 
 type RouteToolArgs struct {
 	Prompt     string
+	ParamName  string
 	ParamValue string
 	UserID     string
 }
@@ -45,16 +45,11 @@ func (a *adapterImpl) RouteTool(ctx context.Context, args RouteToolArgs) (RouteT
 		Temperature: &geminiTemp,
 	}
 
-	paramName, ok := ctx.Value(commonctx.ParamNameCtxKey).(string)
-	if !ok {
-		return RouteToolResult{}, errors.New("there is no param name inside context")
-	}
-
 	contents := genai.Text(fmt.Sprintf(`
 		Put %s in hashed_%s tool args.
 		Translate %s into SQL.
 		Strive for single tool call.
-	`, args.ParamValue, paramName, args.Prompt))
+	`, args.ParamValue, args.ParamName, args.Prompt))
 	resp, err := a.genaiClient.Models.GenerateContent(ctx, "gemini-3.1-flash-lite", contents, geminiConfig)
 	if err != nil {
 		return RouteToolResult{}, fmt.Errorf("unable to use gemini client: %w", err)

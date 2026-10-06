@@ -3,8 +3,9 @@ package commonhttp
 import "net/http"
 
 const (
-	AuthStateCookieName = "auth_state"
-	UserIDCookieName    = "user_id"
+	AuthStateCookieName       = "auth_state"
+	UserIDCookieName          = "user_id"
+	RouteToolResultCookieName = "route_tool_result"
 )
 
 const (
