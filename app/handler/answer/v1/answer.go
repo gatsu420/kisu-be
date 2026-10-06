@@ -168,12 +168,12 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 		if routeVerification.failedVerificationMsg != "" {
 			errMsg = routeVerification.failedVerificationMsg
 		} else {
-			errMsg = "route is not verified"
+			errMsg = commonerr.UnauthorizedRequestErrMsg
 		}
 		statusCode = http.StatusUnauthorized
 		slog.Error(errMsg,
 			slog.Int(commonerr.StatusCodeLogKey, statusCode))
-		http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
+		http.Error(w, errMsg, statusCode)
 		return
 	}
 

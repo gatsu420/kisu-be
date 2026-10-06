@@ -72,22 +72,20 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 
 	errUrlParam := r.URL.Query().Get("error")
 	if errUrlParam != "" {
-		errMsg = "auth server denied request"
 		statusCode = http.StatusUnauthorized
-		slog.Error(errMsg,
+		slog.Error("auth server denied request",
 			slog.Int(commonerr.StatusCodeLogKey, statusCode))
-		http.Error(w, errMsg, statusCode)
+		http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 		return
 	}
 
 	stateCookie, err := r.Cookie(commonhttp.AuthStateCookieName)
 	if err != nil {
-		errMsg = "unable to get auth_state cookie"
 		statusCode = http.StatusUnauthorized
-		slog.Error(errMsg,
+		slog.Error("unable to get auth_state cookie",
 			slog.Int(commonerr.StatusCodeLogKey, statusCode),
 			slog.String(commonerr.ErrLogKey, err.Error()))
-		http.Error(w, errMsg, statusCode)
+		http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 		return
 	}
 
@@ -97,12 +95,11 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 		urlParam: r.URL.Query().Get("state"),
 	})
 	if err != nil {
-		errMsg = "unable to verify auth state"
 		statusCode = http.StatusInternalServerError
-		slog.Error(errMsg,
+		slog.Error("unable to verify auth state",
 			slog.Int(commonerr.StatusCodeLogKey, statusCode),
 			slog.String(commonerr.ErrLogKey, err.Error()))
-		http.Error(w, errMsg, statusCode)
+		http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
 		return
 	}
 
@@ -110,7 +107,7 @@ func (h *handlerImpl) Callback(w http.ResponseWriter, r *http.Request) {
 		if stateVerification.failedVerificationMsg != "" {
 			errMsg = stateVerification.failedVerificationMsg
 		} else {
-			errMsg = "auth state is not verified"
+			errMsg = commonerr.UnauthorizedRequestErrMsg
 		}
 		statusCode = http.StatusUnauthorized
 		slog.Error(errMsg,
