@@ -6,7 +6,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchAnswer, uploadCsv } from "../lib/api";
+import { routeTool, callTool, uploadCsv } from "../lib/api";
 import Header from "../components/Header";
 import HighlightedCode from "../components/HighlightedCode";
 import toolStyles from "./Tool.module.css";
@@ -129,16 +129,19 @@ export default function Query() {
   };
 
   // Run a query and replace the result. Return true on success.
-  const runQuery = async (queryPrompt: string, offset: number) => {
+  // When `route` is true, first route the prompt to a tool. Pagination
+  // reuses the routed tool from the cookie, so it skips routing.
+  const runQuery = async (
+    queryPrompt: string,
+    offset: number,
+    route: boolean,
+  ) => {
     setLoading(true);
     try {
-      const data = await fetchAnswer(
-        queryPrompt,
-        paramValue,
-        paramName,
-        PAGE_SIZE,
-        offset,
-      );
+      if (route) {
+        await routeTool(queryPrompt, paramValue, paramName);
+      }
+      const data = await callTool(PAGE_SIZE, offset);
       // The endpoint returns rows in answer. Fail early on bad payload.
       if (unwrapAnswer(data) === null) {
         throw new Error("answer response has no rows");
@@ -174,7 +177,7 @@ export default function Query() {
     setSaveOpen(false);
     setPage(1);
 
-    await runQuery(currentPrompt, 0);
+    await runQuery(currentPrompt, 0, true);
   };
 
   // Load another page of the current result. The BE re-runs the query.
@@ -182,7 +185,7 @@ export default function Query() {
     if (!message || message.error || loading || nextPage < 1) return;
     setResultTab("answer");
     setSaveOpen(false);
-    const ok = await runQuery(message.prompt, (nextPage - 1) * PAGE_SIZE);
+    const ok = await runQuery(message.prompt, (nextPage - 1) * PAGE_SIZE, false);
     if (ok) setPage(nextPage);
   };
 

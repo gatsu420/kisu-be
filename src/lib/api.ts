@@ -3,17 +3,37 @@ export interface AnswerResult {
   stringified_func_calls: string;
 }
 
-export async function fetchAnswer(
+// Route prompts to a tool. The BE stores the result in an HttpOnly cookie.
+export async function routeTool(
   prompt: string,
   paramValue: string,
   paramName: string,
+): Promise<void> {
+  const url = new URL("/answer/v1/route", window.location.origin);
+  url.searchParams.set("prompt", prompt);
+  url.searchParams.set("param_value", paramValue);
+  url.searchParams.set("param_name", paramName);
+
+  const res = await fetch(url.toString(), {
+    method: "GET",
+    credentials: "include",
+  });
+
+  if (res.status === 401) {
+    throw new Error("unauthorized");
+  }
+
+  if (!res.ok) {
+    throw new Error("request failed");
+  }
+}
+
+// Call the routed tool. The BE reads the tool from the cookie.
+export async function callTool(
   limit: number,
   offset: number,
 ): Promise<AnswerResult> {
   const url = new URL("/answer/v1/answer", window.location.origin);
-  url.searchParams.set("prompt", prompt);
-  url.searchParams.set("param_value", paramValue);
-  url.searchParams.set("param_name", paramName);
   url.searchParams.set("limit", String(limit));
   url.searchParams.set("offset", String(offset));
 
