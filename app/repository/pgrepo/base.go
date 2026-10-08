@@ -14,6 +14,10 @@ type Repository interface {
 	GetUserToken(ctx context.Context, args GetUserTokenArgs) (GetUserTokenResult, error)
 	AddTool(ctx context.Context, args AddToolArgs) error
 	GetTool(ctx context.Context, args GetToolArgs) (GetToolResult, error)
+	AddBookmark(ctx context.Context, args AddBookmarkArgs) error
+	ListBookmark(ctx context.Context, args ListBookmarkArgs) (ListBookmarkResult, error)
+	GetBookmark(ctx context.Context, args GetBookmarkArgs) (GetBookmarkResult, error)
+	DeleteBookmark(ctx context.Context, args DeleteBookmarkArgs) error
 }
 
 type repositoryImpl struct {

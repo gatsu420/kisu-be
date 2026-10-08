@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -70,15 +69,15 @@ func (h *handlerImpl) RouteTool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hashedResult := buildRoute(buildRouteArgs{
+	hashedTool := buildHashedTool(buildHashedToolArgs{
 		secret: h.hashSecret,
 		str:    string(marshaledResult),
 		salt:   salt,
 	})
 
 	http.SetCookie(w, &http.Cookie{
-		Name:     commonhttp.RouteToolResultCookieName,
-		Value:    hashedResult.route,
+		Name:     commonhttp.HashedToolCookieName,
+		Value:    hashedTool.tool,
 		Path:     commonhttp.CookiePath,
 		MaxAge:   commonhttp.CookieMaxAge,
 		HttpOnly: commonhttp.CookieHttpOnly,
@@ -89,30 +88,29 @@ func (h *handlerImpl) RouteTool(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("tool is routed"))
 }
 
-type buildRouteArgs struct {
+type buildHashedToolArgs struct {
 	secret string
 	str    string
 	salt   string
 }
 
-type buildRouteResult struct {
-	route string
+type buildHashedToolResult struct {
+	tool string
 }
 
-func buildRoute(args buildRouteArgs) buildRouteResult {
+func buildHashedTool(args buildHashedToolArgs) buildHashedToolResult {
 	prefix := base64.URLEncoding.EncodeToString([]byte(
 		args.str,
 	)) +
-		"." + args.salt +
-		"." + strconv.FormatInt(time.Now().UnixMicro(), 10)
+		"." + args.salt
 	digest := commoncrypto.HashString(commoncrypto.HashStringArgs{
 		Secret: args.secret,
 		Str:    prefix,
 		Salt:   args.salt,
 	})
 
-	return buildRouteResult{
-		route: base64.URLEncoding.EncodeToString([]byte(
+	return buildHashedToolResult{
+		tool: base64.URLEncoding.EncodeToString([]byte(
 			prefix + "." + digest.Digest,
 		)),
 	}
@@ -129,7 +127,7 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 	var errMsg string
 	var statusCode int
 
-	routeCookie, err := r.Cookie(commonhttp.RouteToolResultCookieName)
+	routeCookie, err := r.Cookie(commonhttp.HashedToolCookieName)
 	if err != nil {
 		statusCode = http.StatusUnauthorized
 		slog.Error("unable to get route cookie",
@@ -150,12 +148,12 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	decodedCookieParts := strings.Split(string(decodedCookie), ".")
-	routeVerification, err := verifyRoute(verifyRouteArgs{
+	hashedToolVerification, err := verifyHashedTool(verifyHashedToolArgs{
 		secret: h.hashSecret,
 		cookie: routeCookie.Value,
 	})
 	if err != nil {
-		errMsg = "unable to verify route"
+		errMsg = "unable to verify hashed tool"
 		statusCode = http.StatusInternalServerError
 		slog.Error(errMsg,
 			slog.Int(commonerr.StatusCodeLogKey, statusCode),
@@ -164,13 +162,14 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !routeVerification.isVerified {
-		if routeVerification.failedVerificationMsg != "" {
-			errMsg = routeVerification.failedVerificationMsg
+	if !hashedToolVerification.isVerified {
+		if hashedToolVerification.failedVerificationMsg != "" {
+			errMsg = hashedToolVerification.failedVerificationMsg
 		} else {
 			errMsg = commonerr.UnauthorizedRequestErrMsg
 		}
 		statusCode = http.StatusUnauthorized
+
 		slog.Error(errMsg,
 			slog.Int(commonerr.StatusCodeLogKey, statusCode))
 		http.Error(w, errMsg, statusCode)
@@ -187,8 +186,9 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, errMsg, statusCode)
 		return
 	}
-	var route RouteToolResult
-	err = json.Unmarshal([]byte(string(decodedRouteStr)), &route)
+
+	var toolResult RouteToolResult
+	err = json.Unmarshal([]byte(string(decodedRouteStr)), &toolResult)
 	if err != nil {
 		errMsg = "unable to unmarshal route cookie parts"
 		statusCode = http.StatusInternalServerError
@@ -199,10 +199,10 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	toolResult, err := h.metadataUsecase.CallTool(r.Context(), metadata.CallToolArgs{
+	result, err := h.metadataUsecase.CallTool(r.Context(), metadata.CallToolArgs{
 		Salt:   decodedCookieParts[1],
-		Tool:   route.Tool,
-		Type:   route.Type,
+		Tool:   toolResult.Tool,
+		Type:   toolResult.Type,
 		Limit:  r.URL.Query().Get("limit"),
 		Offset: r.URL.Query().Get("offset"),
 	})
@@ -217,8 +217,8 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = json.NewEncoder(w).Encode(GetAnswerResult{
-		Answer:               toolResult.Result,
-		StringifiedFuncCalls: toolResult.StringifiedTool,
+		Answer:               result.Result,
+		StringifiedFuncCalls: result.StringifiedTool,
 	})
 	if err != nil {
 		errMsg = "unable to write response"
@@ -230,51 +230,41 @@ func (h *handlerImpl) GetAnswer(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type verifyRouteArgs struct {
+type verifyHashedToolArgs struct {
 	secret string
 	cookie string
 }
 
-type verifyRouteResult struct {
+type verifyHashedToolResult struct {
 	isVerified            bool
 	failedVerificationMsg string
 }
 
-func verifyRoute(args verifyRouteArgs) (verifyRouteResult, error) {
+func verifyHashedTool(args verifyHashedToolArgs) (verifyHashedToolResult, error) {
 	decodedCookie, err := base64.URLEncoding.DecodeString(args.cookie)
 	if err != nil {
-		return verifyRouteResult{}, fmt.Errorf("unable to decode cookie: %w", err)
+		return verifyHashedToolResult{}, fmt.Errorf("unable to decode cookie: %w", err)
 	}
 
 	cookieParts := strings.Split(string(decodedCookie), ".")
 	comparison, err := commoncrypto.VerifyHashedString(commoncrypto.VerifyHashedStringArgs{
 		Secret: args.secret,
 		Str: cookieParts[0] +
-			"." + cookieParts[1] +
-			"." + cookieParts[2],
+			"." + cookieParts[1],
 		Salt:   cookieParts[1],
-		Digest: cookieParts[3],
+		Digest: cookieParts[2],
 	})
 	if err != nil {
-		return verifyRouteResult{}, err
+		return verifyHashedToolResult{}, err
 	}
 
 	if !comparison.IsSameHash {
-		return verifyRouteResult{
-			failedVerificationMsg: "cookie state does not match URL param",
+		return verifyHashedToolResult{
+			failedVerificationMsg: "digest in hashed_tool does not match its constituting components",
 		}, nil
 	}
 
-	epoch, err := strconv.Atoi(cookieParts[2])
-	if err != nil {
-		return verifyRouteResult{}, errors.New("unable to cast epoch from cookie state to int")
-	}
-
-	if time.Since(time.UnixMicro(int64(epoch))) > 1*time.Minute {
-		return verifyRouteResult{}, nil
-	}
-
-	return verifyRouteResult{
+	return verifyHashedToolResult{
 		isVerified: true,
 	}, nil
 }
@@ -612,4 +602,236 @@ func (h *handlerImpl) GetToolTableMetadata(w http.ResponseWriter, r *http.Reques
 			slog.String(commonerr.ErrLogKey, err.Error()))
 		http.Error(w, errMsg, statusCode)
 	}
+}
+
+type AddBookmarkArgs struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	ParamName  string `json:"param_name"`
+	ParamValue string `json:"param_value"`
+	Query      string `json:"query"`
+}
+
+func (h *handlerImpl) AddBookmark(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	var errMsg string
+	var statusCode int
+
+	var args AddBookmarkArgs
+	err := json.NewDecoder(r.Body).Decode(&args)
+	if err != nil {
+		errMsg = "unable to decode request body"
+		statusCode = http.StatusBadRequest
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
+		return
+	}
+
+	userIdCookie, err := r.Cookie(commonhttp.UserIDCookieName)
+	if err != nil {
+		statusCode = http.StatusUnauthorized
+		slog.Error("unable to find user id cookie",
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
+		return
+	}
+
+	hashedToolCookie, err := r.Cookie(commonhttp.HashedToolCookieName)
+	if err != nil {
+		statusCode = http.StatusUnauthorized
+		slog.Error("unable to find route hashed tool cookie",
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
+		return
+	}
+
+	err = h.answerUsecase.AddBookmark(r.Context(), answer.AddBookmarkArgs{
+		ID:         args.ID,
+		UserID:     userIdCookie.Value,
+		Name:       args.Name,
+		ParamName:  args.ParamName,
+		ParamValue: args.ParamValue,
+		Query:      args.Query,
+		HashedTool: hashedToolCookie.Value,
+	})
+	if err != nil {
+		errMsg = "unable to add bookmark"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("bookmark is added"))
+}
+
+type ListBookmarkResult struct {
+	Rows []ListBookmarkRow `json:"rows"`
+}
+
+type ListBookmarkRow struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func (h *handlerImpl) ListBookmark(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	var errMsg string
+	var statusCode int
+
+	userIdCookie, err := r.Cookie(commonhttp.UserIDCookieName)
+	if err != nil {
+		statusCode = http.StatusUnauthorized
+		slog.Error("unable to get user id cookie",
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
+		return
+	}
+
+	bookmarks, err := h.answerUsecase.ListBookmark(r.Context(), answer.ListBookmarkArgs{
+		UserID: userIdCookie.Value,
+	})
+	if err != nil {
+		errMsg = "unable to list bookmark"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
+		return
+	}
+
+	resultRows := make([]ListBookmarkRow, len(bookmarks.Rows))
+	for i, v := range bookmarks.Rows {
+		resultRows[i] = ListBookmarkRow{
+			ID:        v.ID,
+			Name:      v.Name,
+			UpdatedAt: v.UpdatedAt,
+		}
+	}
+
+	err = json.NewEncoder(w).Encode(resultRows)
+	if err != nil {
+		errMsg = "unable to write response"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
+	}
+}
+
+type GetBookmarkResult struct {
+	Name       string    `json:"name"`
+	ParamName  string    `json:"param_name"`
+	ParamValue string    `json:"param_value"`
+	Query      string    `json:"query"`
+	HashedTool string    `json:"hashed_tool"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+func (h *handlerImpl) GetBookmark(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	var errMsg string
+	var statusCode int
+
+	userIdCookie, err := r.Cookie(commonhttp.UserIDCookieName)
+	if err != nil {
+		statusCode = http.StatusUnauthorized
+		slog.Error("unable to get user id cookie",
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, commonerr.UnauthorizedRequestErrMsg, statusCode)
+		return
+	}
+
+	bookmark, err := h.answerUsecase.GetBookmark(r.Context(), answer.GetBookmarkArgs{
+		ID:     r.URL.Query().Get("id"),
+		UserID: userIdCookie.Value,
+	})
+	if err != nil {
+		if errors.Is(err, commonerr.NoRowsQueryErr) {
+			errMsg = "bookmark is not found"
+			statusCode = http.StatusNotFound
+			slog.Error(errMsg,
+				slog.Int(commonerr.StatusCodeLogKey, statusCode))
+			http.Error(w, errMsg, statusCode)
+			return
+		}
+
+		errMsg = "unable to get bookmark"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     commonhttp.HashedToolCookieName,
+		Value:    bookmark.HashedTool,
+		Path:     commonhttp.CookiePath,
+		MaxAge:   commonhttp.CookieMaxAge,
+		HttpOnly: commonhttp.CookieHttpOnly,
+		Secure:   commonhttp.CookieSecure,
+		SameSite: commonhttp.CookieSameSite,
+	})
+
+	err = json.NewEncoder(w).Encode(GetBookmarkResult{
+		Name:       bookmark.Name,
+		ParamName:  bookmark.ParamName,
+		ParamValue: bookmark.ParamValue,
+		Query:      bookmark.Query,
+		HashedTool: bookmark.HashedTool,
+		UpdatedAt:  bookmark.UpdatedAt,
+	})
+	if err != nil {
+		errMsg = "unable to write response"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
+	}
+
+}
+
+type DeleteBookmarkArgs struct {
+	ID string `json:"id"`
+}
+
+func (h *handlerImpl) DeleteBookmark(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	var errMsg string
+	var statusCode int
+
+	err := h.answerUsecase.DeleteBookmark(r.Context(), answer.DeleteBookmarkArgs{
+		ID: r.URL.Query().Get("id"),
+	})
+	if err != nil {
+		errMsg = "unable to delete bookmark"
+		statusCode = http.StatusInternalServerError
+		slog.Error(errMsg,
+			slog.Int(commonerr.StatusCodeLogKey, statusCode),
+			slog.String(commonerr.ErrLogKey, err.Error()))
+		http.Error(w, errMsg, statusCode)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("bookmark is deleted"))
 }

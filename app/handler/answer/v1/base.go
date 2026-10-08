@@ -15,6 +15,10 @@ type Handler interface {
 	RouteTool(w http.ResponseWriter, r *http.Request)
 	GetAnswer(w http.ResponseWriter, r *http.Request)
 	UploadCsv(w http.ResponseWriter, r *http.Request)
+	AddBookmark(w http.ResponseWriter, r *http.Request)
+	ListBookmark(w http.ResponseWriter, r *http.Request)
+	GetBookmark(w http.ResponseWriter, r *http.Request)
+	DeleteBookmark(w http.ResponseWriter, r *http.Request)
 }
 
 type handlerImpl struct {
