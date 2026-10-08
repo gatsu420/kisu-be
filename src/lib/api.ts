@@ -53,6 +53,113 @@ export async function callTool(
   return res.json();
 }
 
+export async function addBookmark(args: {
+  id?: string;
+  name: string;
+  param_name: string;
+  param_value: string;
+  query: string;
+}): Promise<void> {
+  const res = await fetch("/answer/v1/bookmark", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify(args),
+  });
+
+  if (res.status === 401) {
+    throw new Error("unauthorized");
+  }
+
+  if (!res.ok) {
+    throw new Error("request failed");
+  }
+}
+
+export interface Bookmark {
+  id: string;
+  name: string;
+  updated_at: string;
+}
+
+export interface BookmarkDetail {
+  name: string;
+  param_name: string;
+  param_value: string;
+  query: string;
+  hashed_tool: string;
+  updated_at: string;
+}
+
+// List the current user's bookmarks. The BE returns an array.
+export async function fetchBookmarks(): Promise<Bookmark[]> {
+  const res = await fetch("/answer/v1/bookmarks", {
+    method: "GET",
+    credentials: "include",
+  });
+
+  if (res.status === 401) {
+    throw new Error("unauthorized");
+  }
+
+  if (!res.ok) {
+    throw new Error("request failed");
+  }
+
+  const data: unknown = await res.json();
+  if (!Array.isArray(data)) {
+    throw new Error("bookmarks response is invalid");
+  }
+  return data.map((row) => {
+    const r = row as Record<string, unknown>;
+    return {
+      id: typeof r.id === "string" ? r.id : "",
+      name: typeof r.name === "string" ? r.name : "",
+      updated_at: typeof r.updated_at === "string" ? r.updated_at : "",
+    };
+  });
+}
+
+// Fetch one bookmark. The BE also sets the hashed_tool cookie, so a
+// following callTool() runs the bookmarked tool.
+export async function fetchBookmark(id: string): Promise<BookmarkDetail> {
+  const url = new URL("/answer/v1/bookmark", window.location.origin);
+  url.searchParams.set("id", id);
+
+  const res = await fetch(url.toString(), {
+    method: "GET",
+    credentials: "include",
+  });
+
+  if (res.status === 401) {
+    throw new Error("unauthorized");
+  }
+
+  if (res.status === 404) {
+    throw new Error("bookmark not found");
+  }
+
+  if (!res.ok) {
+    throw new Error("request failed");
+  }
+
+  const data: unknown = await res.json();
+  if (typeof data !== "object" || data === null) {
+    throw new Error("bookmark response is invalid");
+  }
+  const d = data as Record<string, unknown>;
+  return {
+    name: typeof d.name === "string" ? d.name : "",
+    param_name: typeof d.param_name === "string" ? d.param_name : "",
+    param_value: typeof d.param_value === "string" ? d.param_value : "",
+    query: typeof d.query === "string" ? d.query : "",
+    hashed_tool: typeof d.hashed_tool === "string" ? d.hashed_tool : "",
+    updated_at: typeof d.updated_at === "string" ? d.updated_at : "",
+  };
+}
+
 export async function validateToolQuery(query: string): Promise<boolean> {
   const url = new URL("/answer/v1/validate-tool-query", window.location.origin);
   url.searchParams.set("query", query);

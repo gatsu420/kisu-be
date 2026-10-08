@@ -5,9 +5,18 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
-import { useNavigate } from "react-router-dom";
-import { routeTool, callTool, uploadCsv } from "../lib/api";
+import { useNavigate, useLocation } from "react-router-dom";
+import {
+  routeTool,
+  callTool,
+  uploadCsv,
+  addBookmark,
+  fetchBookmark,
+  type Bookmark,
+} from "../lib/api";
 import Header from "../components/Header";
+import { useBookmarks } from "../components/BookmarkContext";
+import { bookmarkTitle } from "../lib/bookmark";
 import HighlightedCode from "../components/HighlightedCode";
 import toolStyles from "./Tool.module.css";
 import styles from "./Query.module.css";
@@ -38,6 +47,10 @@ export default function Query() {
   const [uploading, setUploading] = useState(false);
   const [uploadUrl, setUploadUrl] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [savingBookmark, setSavingBookmark] = useState(false);
+  const [bookmarkError, setBookmarkError] = useState<string | null>(null);
+  const [bookmarked, setBookmarked] = useState(false);
+  const [activeBookmark, setActiveBookmark] = useState<Bookmark | null>(null);
   const saveRef = useRef<HTMLDivElement>(null);
   const [fullValue, setFullValue] = useState<{
     label: string;
@@ -46,6 +59,8 @@ export default function Query() {
   const [resetTarget, setResetTarget] = useState<"value" | "name" | null>(null);
   const [resetDraft, setResetDraft] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
+  const { refreshBookmarks } = useBookmarks();
 
   const paramLocked = paramValue.length > 0 && paramName.length > 0;
   const funcCalls = message?.funcCalls ?? "";
@@ -173,6 +188,8 @@ export default function Query() {
     setMessage({ prompt: currentPrompt });
     setUploadUrl(null);
     setUploadError(null);
+    setBookmarkError(null);
+    setBookmarked(false);
     setResultTab("answer");
     setSaveOpen(false);
     setPage(1);
@@ -185,7 +202,11 @@ export default function Query() {
     if (!message || message.error || loading || nextPage < 1) return;
     setResultTab("answer");
     setSaveOpen(false);
-    const ok = await runQuery(message.prompt, (nextPage - 1) * PAGE_SIZE, false);
+    const ok = await runQuery(
+      message.prompt,
+      (nextPage - 1) * PAGE_SIZE,
+      false,
+    );
     if (ok) setPage(nextPage);
   };
 
@@ -226,6 +247,127 @@ export default function Query() {
     setSaveOpen(false);
   };
 
+  // Save the current result as a bookmark. The BE reads the routed tool
+  // from the cookie. The prompt text becomes the bookmark name.
+  // When a bookmark is open, update it in place instead of creating one.
+  const handleBookmark = async () => {
+    if (!message || message.error || savingBookmark) return;
+    setSavingBookmark(true);
+    setBookmarkError(null);
+    setBookmarked(false);
+
+    try {
+      const query = message.prompt;
+      await addBookmark({
+        id: activeBookmark?.id,
+        name: query,
+        param_name: paramName,
+        param_value: paramValue,
+        query,
+      });
+      if (activeBookmark) {
+        setActiveBookmark({
+          ...activeBookmark,
+          name: deriveBookmarkName(query),
+          updated_at: new Date().toISOString(),
+        });
+      }
+      setBookmarked(true);
+      void refreshBookmarks();
+    } catch (e) {
+      if (e instanceof Error && e.message === "unauthorized") {
+        navigate("/login");
+        return;
+      }
+      setBookmarkError(e instanceof Error ? e.message : "bookmark failed");
+    } finally {
+      setSavingBookmark(false);
+      setSaveOpen(false);
+    }
+  };
+
+  // Leave bookmark editing and return to a fresh query.
+  const handleNewQuery = () => {
+    setActiveBookmark(null);
+    setBookmarked(false);
+    setBookmarkError(null);
+    setSaveOpen(false);
+    setParamValue("");
+    setParamName("");
+    setParamValueDraft("");
+    setParamNameDraft("");
+    setPrompt("");
+    setMessage(null);
+    setResultTab("answer");
+    setPage(1);
+    setUploadUrl(null);
+    setUploadError(null);
+  };
+
+  // Load a bookmark and show its saved result. The BE sets the hashed_tool
+  // cookie, so callTool runs the bookmarked tool.
+  const openBookmark = async (bookmark: Bookmark) => {
+    if (loading) return;
+    setActiveBookmark(bookmark);
+    setLoading(true);
+    setUploadUrl(null);
+    setUploadError(null);
+    setBookmarkError(null);
+    setSaveOpen(false);
+    setResultTab("answer");
+    setPage(1);
+
+    try {
+      const detail = await fetchBookmark(bookmark.id);
+      const bookmarkQuery = detail.query || bookmark.name;
+      setActiveBookmark({
+        ...bookmark,
+        name: detail.name || bookmark.name,
+        updated_at: detail.updated_at || bookmark.updated_at,
+      });
+      setParamValue(detail.param_value);
+      setParamName(detail.param_name);
+      setPrompt(bookmarkQuery);
+      const data = await callTool(PAGE_SIZE, 0);
+      if (unwrapAnswer(data) === null) {
+        throw new Error("answer response has no rows");
+      }
+      setMessage({
+        prompt: bookmarkQuery,
+        result: data,
+        funcCalls: getFuncCalls(data),
+      });
+    } catch (e) {
+      if (e instanceof Error && e.message === "unauthorized") {
+        navigate("/login");
+        return;
+      }
+      setMessage({
+        prompt: bookmark.name,
+        error: e instanceof Error ? e.message : "something went wrong",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Open a bookmark picked from the header drawer, then clear the router
+  // state so a reload does not reopen it.
+  useEffect(() => {
+    const state = location.state as {
+      bookmark?: Bookmark;
+      newQuery?: boolean;
+    } | null;
+    if (!state) return;
+    if (state.bookmark) {
+      void openBookmark(state.bookmark);
+    } else if (state.newQuery) {
+      handleNewQuery();
+    }
+    navigate("/", { replace: true, state: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
+
   const handlePromptKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -235,6 +377,30 @@ export default function Query() {
 
   return (
     <div className={styles.page}>
+      {bookmarked && (
+        <div className={toolStyles.snackbar}>
+          <span className={toolStyles.snackbarText}>
+            {activeBookmark
+              ? "Bookmark updated successfully!"
+              : "Bookmark added successfully!"}
+          </span>
+          <span
+            className={toolStyles.snackbarClose}
+            role="button"
+            tabIndex={0}
+            aria-label="Close"
+            onClick={() => setBookmarked(false)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setBookmarked(false);
+              }
+            }}
+          >
+            ×
+          </span>
+        </div>
+      )}
       {uploadUrl && (
         <div className={toolStyles.snackbar}>
           <span className={toolStyles.snackbarText}>
@@ -248,22 +414,34 @@ export default function Query() {
               Open in Google Drive
             </a>
           </span>
-          <button
-            type="button"
+          <span
             className={toolStyles.snackbarClose}
+            role="button"
+            tabIndex={0}
+            aria-label="Close"
             onClick={() => setUploadUrl(null)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setUploadUrl(null);
+              }
+            }}
           >
-            x
-          </button>
+            ×
+          </span>
         </div>
       )}
       <Header />
 
       <main className={styles.main}>
         <div className={styles.card}>
-          <h2 className={styles.cardTitle}>Query</h2>
+          <h2 className={styles.cardTitle}>
+            {activeBookmark
+              ? bookmarkTitle(activeBookmark.name, activeBookmark.updated_at)
+              : "New Query"}
+          </h2>
           {/* Param setup */}
-          {!paramLocked ? (
+          {!paramLocked && !activeBookmark ? (
             <form onSubmit={handleSetParam} className={styles.setupCard}>
               <div className={styles.setupRow}>
                 <div className={styles.setupField}>
@@ -392,9 +570,12 @@ export default function Query() {
                   />
                   <button
                     className={styles.askBtn}
-                    style={{ opacity: loading || !prompt.trim() ? 0.5 : 1 }}
+                    style={{
+                      opacity:
+                        loading || !prompt.trim() || !paramLocked ? 0.5 : 1,
+                    }}
                     onClick={handleAsk}
-                    disabled={loading || !prompt.trim()}
+                    disabled={loading || !prompt.trim() || !paramLocked}
                   >
                     {loading ? "..." : "Get Answer"}
                   </button>
@@ -449,6 +630,18 @@ export default function Query() {
                               >
                                 Download as CSV
                               </button>
+                              <button
+                                type="button"
+                                className={styles.saveMenuItem}
+                                onClick={handleBookmark}
+                                disabled={savingBookmark}
+                              >
+                                {savingBookmark
+                                  ? "Saving..."
+                                  : activeBookmark
+                                    ? "Update bookmark"
+                                    : "Add bookmark"}
+                              </button>
                             </div>
                           )}
                         </div>
@@ -465,6 +658,9 @@ export default function Query() {
                       </div>
                       {uploadError && (
                         <p className={styles.uploadError}>{uploadError}</p>
+                      )}
+                      {bookmarkError && (
+                        <p className={styles.uploadError}>{bookmarkError}</p>
                       )}
                     </>
                   )}
@@ -710,4 +906,10 @@ function csvFileName(): string {
   const date = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
   const time = `${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
   return `answer_${date}_${time}.csv`;
+}
+
+// Match the BE, which truncates the bookmark name to 30 runes.
+function deriveBookmarkName(query: string): string {
+  const runes = Array.from(query);
+  return runes.length > 30 ? runes.slice(0, 30).join("") + "..." : query;
 }

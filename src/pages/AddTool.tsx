@@ -622,13 +622,21 @@ export default function AddTool() {
           <span className={styles.snackbarText}>
             Tool has been added successfully! You can now use it in the query.
           </span>
-          <button
-            type="button"
+          <span
             className={styles.snackbarClose}
+            role="button"
+            tabIndex={0}
+            aria-label="Close"
             onClick={() => setSuccess(false)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setSuccess(false);
+              }
+            }}
           >
-            x
-          </button>
+            ×
+          </span>
         </div>
       )}
       <Header />
