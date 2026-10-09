@@ -1,0 +1,114 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  z-index: 100;
+}
+
+.dialog {
+  background: white;
+  border-radius: 10px;
+  padding: 1.25rem;
+  width: 100%;
+  max-width: 30rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.close {
+  background: #f3f4f6;
+  border: none;
+  padding: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.close:hover {
+  background: #e5e7eb;
+}
+
+.message {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #1f2937;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Extra distance between the copy and the CTAs. */
+.actions {
+  margin-top: 0.75rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* Neutral CTA. */
+.cancelBtn {
+  padding: 0.45rem 1rem;
+  font-size: 0.8125rem;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  color: #374151;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.cancelBtn:hover,
+.cancelBtn:focus-visible {
+  background: #f3f4f6;
+  color: #1a1a2e;
+}
+
+/* Danger CTA. Same red as the drawer X hover color. */
+.confirmBtn {
+  padding: 0.45rem 1rem;
+  font-size: 0.8125rem;
+  background: #dc2626;
+  border: 1px solid #dc2626;
+  border-radius: 6px;
+  color: #ffffff;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.confirmBtn:hover,
+.confirmBtn:focus-visible {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}

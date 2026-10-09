@@ -236,9 +236,23 @@
   gap: 0.25rem;
 }
 
+.drawerRow {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.drawerRow:hover,
+.drawerRow:focus-within {
+  background: #f3f4f6;
+}
+
 .drawerItem {
   display: block;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   text-align: left;
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
@@ -251,5 +265,32 @@
 }
 
 .drawerItem:hover {
-  background: #f3f4f6;
+  background: transparent;
+}
+
+/* Same X as the snackbar close, hidden until the row is hovered. */
+.drawerClose {
+  flex-shrink: 0;
+  padding: 0 0.5rem;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: #6b7280;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.drawerRow:hover .drawerClose,
+.drawerRow:focus-within .drawerClose {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drawerClose:hover,
+.drawerClose:focus-visible {
+  color: #dc2626;
 }

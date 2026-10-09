@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { type Bookmark } from "../lib/api";
+import { deleteBookmark, type Bookmark } from "../lib/api";
 import {
   bookmarkItemLabel,
   formatDayMonth,
   updatedAtTime,
 } from "../lib/bookmark";
 import { useBookmarks } from "./BookmarkContext";
+import ConfirmDialog from "./ConfirmDialog";
 import Logo from "./Logo";
 import styles from "./Header.module.css";
 
@@ -21,6 +22,8 @@ export default function Header() {
     refreshBookmarks,
   } = useBookmarks();
   const [bookmarksOpen, setBookmarksOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Bookmark | null>(null);
 
   const isQuery = pathname === "/";
   const isTool = pathname.startsWith("/tool");
@@ -55,7 +58,37 @@ export default function Header() {
   const toggleBookmarks = () => {
     const next = !bookmarksOpen;
     setBookmarksOpen(next);
-    if (next && !bookmarksLoaded) void refreshBookmarks();
+    if (next) {
+      setDeleteError(null);
+      if (!bookmarksLoaded) void refreshBookmarks();
+    }
+  };
+
+  // Delete a bookmark, then go back to a fresh query page.
+  const deleteBookmarkRow = async (bookmark: Bookmark) => {
+    setDeleteError(null);
+    try {
+      await deleteBookmark(bookmark.id);
+    } catch (e) {
+      if (e instanceof Error && e.message === "unauthorized") {
+        navigate("/login");
+        return;
+      }
+      setDeleteError(
+        e instanceof Error ? e.message : "failed to delete bookmark",
+      );
+      return;
+    }
+    setBookmarksOpen(false);
+    await refreshBookmarks();
+    navigate("/", { state: { newQuery: true }, replace: pathname === "/" });
+  };
+
+  // Close the dialog, then run the delete.
+  const confirmDelete = async () => {
+    const target = deleteTarget;
+    setDeleteTarget(null);
+    if (target) await deleteBookmarkRow(target);
   };
 
   const selectBookmark = (bookmark: Bookmark) => {
@@ -67,11 +100,12 @@ export default function Header() {
   useEffect(() => {
     if (!bookmarksOpen) return;
     const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") setBookmarksOpen(false);
+      // Keep the drawer open while the delete dialog handles Escape.
+      if (e.key === "Escape" && !deleteTarget) setBookmarksOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [bookmarksOpen]);
+  }, [bookmarksOpen, deleteTarget]);
 
   return (
     <>
@@ -155,7 +189,9 @@ export default function Header() {
             </div>
             <div className={styles.drawerBody}>
               <p className={styles.drawerTitle}>Bookmark</p>
-              {bookmarksError ? (
+              {deleteError ? (
+                <p className={styles.drawerError}>{deleteError}</p>
+              ) : bookmarksError ? (
                 <p className={styles.drawerError}>{bookmarksError}</p>
               ) : bookmarksLoading ? (
                 <p className={styles.drawerEmpty}>Loading...</p>
@@ -164,23 +200,38 @@ export default function Header() {
               ) : (
                 <ul className={styles.drawerList}>
                   {bookmarkGroups.map((group) => (
-                    <li key={group.label || "unknown"} className={styles.drawerGroup}>
+                    <li
+                      key={group.label || "unknown"}
+                      className={styles.drawerGroup}
+                    >
                       {group.label && (
                         <p className={styles.drawerGroupDate}>{group.label}</p>
                       )}
                       <ul className={styles.drawerGroupList}>
                         {group.items.map((b) => (
-                          <li key={b.id}>
+                          <li key={b.id} className={styles.drawerRow}>
                             <button
                               type="button"
                               className={styles.drawerItem}
                               onClick={() => selectBookmark(b)}
                             >
-                              {bookmarkItemLabel(
-                                b.name || b.id,
-                                b.updated_at,
-                              )}
+                              {bookmarkItemLabel(b.name || b.id, b.updated_at)}
                             </button>
+                            <span
+                              className={styles.drawerClose}
+                              role="button"
+                              tabIndex={0}
+                              aria-label="Delete bookmark"
+                              onClick={() => setDeleteTarget(b)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  setDeleteTarget(b);
+                                }
+                              }}
+                            >
+                              ×
+                            </span>
                           </li>
                         ))}
                       </ul>
@@ -191,6 +242,17 @@ export default function Header() {
             </div>
           </aside>
         </>
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Delete bookmark"
+          message={`You are trying to delete ${deleteTarget.name || deleteTarget.id}, this can not be undone.`}
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          onConfirm={() => void confirmDelete()}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </>
   );

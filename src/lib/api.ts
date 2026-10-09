@@ -78,6 +78,25 @@ export async function addBookmark(args: {
   }
 }
 
+// Delete one bookmark.
+export async function deleteBookmark(id: string): Promise<void> {
+  const url = new URL("/answer/v1/bookmark", window.location.origin);
+  url.searchParams.set("id", id);
+
+  const res = await fetch(url.toString(), {
+    method: "DELETE",
+    credentials: "include",
+  });
+
+  if (res.status === 401) {
+    throw new Error("unauthorized");
+  }
+
+  if (!res.ok) {
+    throw new Error("request failed");
+  }
+}
+
 export interface Bookmark {
   id: string;
   name: string;
