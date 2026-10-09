@@ -581,139 +581,141 @@ export default function Query() {
                   </button>
                 </div>
 
-                {/* Result tabs, own row above the result box */}
-                {message !== null &&
-                  !message.error &&
-                  message.result !== undefined && (
-                    <>
-                      <div className={toolStyles.tabs}>
-                        <button
-                          type="button"
-                          className={`${toolStyles.tab} ${
-                            resultTab === "answer" ? toolStyles.tabActive : ""
-                          }`}
-                          onClick={() => setResultTab("answer")}
-                        >
-                          Answer
-                        </button>
-                        <div className={styles.saveWrap} ref={saveRef}>
+                <div className={styles.resultBlock}>
+                  {/* Result tabs above the result box */}
+                  {message !== null &&
+                    !message.error &&
+                    message.result !== undefined && (
+                      <>
+                        <div className={toolStyles.tabs}>
                           <button
                             type="button"
                             className={`${toolStyles.tab} ${
-                              canUpload ? "" : styles.tabDisabled
+                              resultTab === "answer" ? toolStyles.tabActive : ""
                             }`}
-                            aria-expanded={saveOpen}
-                            onClick={() => setSaveOpen((v) => !v)}
-                            disabled={!canUpload}
+                            onClick={() => setResultTab("answer")}
                           >
-                            Save result{" "}
-                            <span className={styles.saveCaret}>
-                              {saveOpen ? "\u25b2" : "\u25bc"}
-                            </span>
+                            Answer
                           </button>
-                          {saveOpen && (
-                            <div className={styles.saveMenu}>
+                          <div className={styles.saveWrap} ref={saveRef}>
+                            <button
+                              type="button"
+                              className={`${toolStyles.tab} ${
+                                canUpload ? "" : styles.tabDisabled
+                              }`}
+                              aria-expanded={saveOpen}
+                              onClick={() => setSaveOpen((v) => !v)}
+                              disabled={!canUpload}
+                            >
+                              Save result{" "}
+                              <span className={styles.saveCaret}>
+                                {saveOpen ? "\u25b2" : "\u25bc"}
+                              </span>
+                            </button>
+                            {saveOpen && (
+                              <div className={styles.saveMenu}>
+                                <button
+                                  type="button"
+                                  className={styles.saveMenuItem}
+                                  onClick={handleUpload}
+                                  disabled={uploading}
+                                >
+                                  {uploading
+                                    ? "Uploading..."
+                                    : "Upload to Google Drive as CSV"}
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.saveMenuItem}
+                                  onClick={handleDownload}
+                                >
+                                  Download as CSV
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.saveMenuItem}
+                                  onClick={handleBookmark}
+                                  disabled={savingBookmark}
+                                >
+                                  {savingBookmark
+                                    ? "Saving..."
+                                    : activeBookmark
+                                      ? "Update bookmark"
+                                      : "Add bookmark"}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            className={`${toolStyles.tab} ${
+                              resultTab === "tool" ? toolStyles.tabActive : ""
+                            } ${funcCalls ? "" : styles.tabDisabled}`}
+                            onClick={() => setResultTab("tool")}
+                            disabled={!funcCalls}
+                          >
+                            Tool call
+                          </button>
+                        </div>
+                        {uploadError && (
+                          <p className={styles.uploadError}>{uploadError}</p>
+                        )}
+                        {bookmarkError && (
+                          <p className={styles.uploadError}>{bookmarkError}</p>
+                        )}
+                      </>
+                    )}
+
+                  {/* Result box: answer tab shows table, tool call tab shows code */}
+                  {resultTab === "answer" ? (
+                    <div className={styles.tableContainer}>
+                      {message === null ? (
+                        <p className={styles.emptyTable}>
+                          Ask a question above to see results.
+                        </p>
+                      ) : message.error ? (
+                        <p className={styles.error}>{message.error}</p>
+                      ) : message.result !== undefined ? (
+                        <>
+                          <ResultTable data={message.result} />
+                          {answerRows !== null && (
+                            <div className={styles.pager}>
                               <button
                                 type="button"
-                                className={styles.saveMenuItem}
-                                onClick={handleUpload}
-                                disabled={uploading}
+                                className={styles.pagerBtn}
+                                onClick={() => goToPage(page - 1)}
+                                disabled={page <= 1 || loading}
                               >
-                                {uploading
-                                  ? "Uploading..."
-                                  : "Upload to Google Drive as CSV"}
+                                Prev
                               </button>
+                              <span className={styles.pagerPage}>
+                                Page {page}
+                              </span>
                               <button
                                 type="button"
-                                className={styles.saveMenuItem}
-                                onClick={handleDownload}
+                                className={styles.pagerBtn}
+                                onClick={() => goToPage(page + 1)}
+                                disabled={!canGoNext || loading}
                               >
-                                Download as CSV
-                              </button>
-                              <button
-                                type="button"
-                                className={styles.saveMenuItem}
-                                onClick={handleBookmark}
-                                disabled={savingBookmark}
-                              >
-                                {savingBookmark
-                                  ? "Saving..."
-                                  : activeBookmark
-                                    ? "Update bookmark"
-                                    : "Add bookmark"}
+                                Next
                               </button>
                             </div>
                           )}
-                        </div>
-                        <button
-                          type="button"
-                          className={`${toolStyles.tab} ${
-                            resultTab === "tool" ? toolStyles.tabActive : ""
-                          } ${funcCalls ? "" : styles.tabDisabled}`}
-                          onClick={() => setResultTab("tool")}
-                          disabled={!funcCalls}
-                        >
-                          Tool call
-                        </button>
-                      </div>
-                      {uploadError && (
-                        <p className={styles.uploadError}>{uploadError}</p>
+                        </>
+                      ) : (
+                        <p className={styles.thinking}>Thinking...</p>
                       )}
-                      {bookmarkError && (
-                        <p className={styles.uploadError}>{bookmarkError}</p>
-                      )}
-                    </>
+                    </div>
+                  ) : (
+                    <div className={styles.funcCallContainer}>
+                      <HighlightedCode
+                        code={funcCalls}
+                        lang="json"
+                        className={styles.funcCallBody}
+                      />
+                    </div>
                   )}
-
-                {/* Result box: answer tab shows table, tool call tab shows code */}
-                {resultTab === "answer" ? (
-                  <div className={styles.tableContainer}>
-                    {message === null ? (
-                      <p className={styles.emptyTable}>
-                        Ask a question above to see results.
-                      </p>
-                    ) : message.error ? (
-                      <p className={styles.error}>{message.error}</p>
-                    ) : message.result !== undefined ? (
-                      <>
-                        <ResultTable data={message.result} />
-                        {answerRows !== null && (
-                          <div className={styles.pager}>
-                            <button
-                              type="button"
-                              className={styles.pagerBtn}
-                              onClick={() => goToPage(page - 1)}
-                              disabled={page <= 1 || loading}
-                            >
-                              Prev
-                            </button>
-                            <span className={styles.pagerPage}>
-                              Page {page}
-                            </span>
-                            <button
-                              type="button"
-                              className={styles.pagerBtn}
-                              onClick={() => goToPage(page + 1)}
-                              disabled={!canGoNext || loading}
-                            >
-                              Next
-                            </button>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <p className={styles.thinking}>Thinking...</p>
-                    )}
-                  </div>
-                ) : (
-                  <div className={styles.funcCallContainer}>
-                    <HighlightedCode
-                      code={funcCalls}
-                      lang="json"
-                      className={styles.funcCallBody}
-                    />
-                  </div>
-                )}
+                </div>
               </div>
             </>
           )}

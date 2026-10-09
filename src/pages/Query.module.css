@@ -117,6 +117,13 @@
   gap: 2.5rem;
 }
 
+/* Tabs + result box: tighter gap than the .rows section gap. */
+.resultBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
 .infoCards {
   display: flex;
   gap: 1rem;
