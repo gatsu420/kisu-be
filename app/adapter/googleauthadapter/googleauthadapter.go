@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gatsu420/kisu-be/common/commonctx"
+	"github.com/gatsu420/kisu/common/commonctx"
 	"golang.org/x/oauth2"
 )
 

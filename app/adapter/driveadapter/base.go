@@ -3,7 +3,7 @@ package driveadapter
 import (
 	"context"
 
-	"github.com/gatsu420/kisu-be/app/adapter/googleauthadapter"
+	"github.com/gatsu420/kisu/app/adapter/googleauthadapter"
 )
 
 type Adapter interface {

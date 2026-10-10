@@ -3,9 +3,9 @@ package answer
 import (
 	"context"
 
-	"github.com/gatsu420/kisu-be/app/adapter/driveadapter"
-	"github.com/gatsu420/kisu-be/app/adapter/geminiadapter"
-	"github.com/gatsu420/kisu-be/app/repository/pgrepo"
+	"github.com/gatsu420/kisu/app/adapter/driveadapter"
+	"github.com/gatsu420/kisu/app/adapter/geminiadapter"
+	"github.com/gatsu420/kisu/app/repository/pgrepo"
 )
 
 type Usecase interface {

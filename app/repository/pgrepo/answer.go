@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gatsu420/kisu-be/common/commonerr"
+	"github.com/gatsu420/kisu/common/commonerr"
 	"github.com/jackc/pgx/v5"
 )
 

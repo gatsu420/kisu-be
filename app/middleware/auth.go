@@ -5,11 +5,11 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/gatsu420/kisu-be/app/adapter/googleauthadapter"
-	"github.com/gatsu420/kisu-be/app/usecase/metadata"
-	"github.com/gatsu420/kisu-be/common/commonctx"
-	"github.com/gatsu420/kisu-be/common/commonerr"
-	"github.com/gatsu420/kisu-be/common/commonhttp"
+	"github.com/gatsu420/kisu/app/adapter/googleauthadapter"
+	"github.com/gatsu420/kisu/app/usecase/metadata"
+	"github.com/gatsu420/kisu/common/commonctx"
+	"github.com/gatsu420/kisu/common/commonerr"
+	"github.com/gatsu420/kisu/common/commonhttp"
 )
 
 func RefreshToken(metadataUsecase metadata.Usecase, googleAuth googleauthadapter.Adapter) func(http.Handler) http.Handler {

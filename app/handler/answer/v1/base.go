@@ -3,8 +3,8 @@ package answerhandlerv1
 import (
 	"net/http"
 
-	"github.com/gatsu420/kisu-be/app/usecase/answer"
-	"github.com/gatsu420/kisu-be/app/usecase/metadata"
+	"github.com/gatsu420/kisu/app/usecase/answer"
+	"github.com/gatsu420/kisu/app/usecase/metadata"
 )
 
 type Handler interface {

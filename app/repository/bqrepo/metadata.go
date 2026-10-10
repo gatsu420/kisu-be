@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"cloud.google.com/go/bigquery"
-	"github.com/gatsu420/kisu-be/app/adapter/googleauthadapter"
-	"github.com/gatsu420/kisu-be/common/commontype"
+	"github.com/gatsu420/kisu/app/adapter/googleauthadapter"
+	"github.com/gatsu420/kisu/common/commontype"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"

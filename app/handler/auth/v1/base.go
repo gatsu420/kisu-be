@@ -3,8 +3,8 @@ package authhandlerv1
 import (
 	"net/http"
 
-	"github.com/gatsu420/kisu-be/app/adapter/googleauthadapter"
-	"github.com/gatsu420/kisu-be/app/usecase/metadata"
+	"github.com/gatsu420/kisu/app/adapter/googleauthadapter"
+	"github.com/gatsu420/kisu/app/usecase/metadata"
 )
 
 type Handler interface {

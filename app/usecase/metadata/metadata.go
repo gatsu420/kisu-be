@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gatsu420/kisu-be/app/repository/bqrepo"
-	"github.com/gatsu420/kisu-be/app/repository/pgrepo"
-	"github.com/gatsu420/kisu-be/common/commoncrypto"
-	"github.com/gatsu420/kisu-be/common/commonctx"
-	"github.com/gatsu420/kisu-be/common/commontype"
+	"github.com/gatsu420/kisu/app/repository/bqrepo"
+	"github.com/gatsu420/kisu/app/repository/pgrepo"
+	"github.com/gatsu420/kisu/common/commoncrypto"
+	"github.com/gatsu420/kisu/common/commonctx"
+	"github.com/gatsu420/kisu/common/commontype"
 	"golang.org/x/oauth2"
 	"google.golang.org/genai"
 )
