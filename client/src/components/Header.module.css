@@ -1,0 +1,296 @@
+.header {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  height: 2.75rem;
+  padding: 0 2rem;
+  background: white;
+  border-bottom: 1px solid #d1d5db;
+  position: relative;
+  z-index: 10;
+}
+
+.menuBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: #374151;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.menuBtn:hover {
+  background: #f3f4f6;
+}
+
+.nav {
+  display: flex;
+  align-self: stretch;
+  gap: 0.25rem;
+}
+
+.navBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 100%;
+  padding: 0 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: #6b7280;
+  transition: all 0.15s;
+}
+
+.navBtn:hover {
+  color: #374151;
+  background: #f9fafb;
+}
+
+.navBtnActive {
+  background: #f5f5f5;
+  color: #1a1a2e;
+  font-weight: 600;
+}
+
+.navBtnActive:hover {
+  background: #f5f5f5;
+}
+
+.dropdown {
+  position: relative;
+  display: flex;
+}
+
+.caret {
+  font-size: 0.625rem;
+  line-height: 1;
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 9rem;
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: all 0.15s;
+}
+
+.dropdown:hover .dropdownMenu,
+.dropdown:focus-within .dropdownMenu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.dropdownItem {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #374151;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.dropdownItem:hover {
+  background: #f3f4f6;
+}
+
+.dropdownItemActive {
+  color: #4285f4;
+  font-weight: 600;
+}
+
+.signOutBtn {
+  margin-left: auto;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8125rem;
+  background: transparent;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #6b7280;
+  transition: color 0.15s;
+}
+
+.signOutBtn:hover {
+  color: #374151;
+}
+
+/* Bookmark drawer. Lives in the header so it is global. */
+.drawerBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.35);
+  z-index: 90;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  /* Match the grey gutter left of the centered 960px card, min 16rem. */
+  width: max(16rem, calc(2rem + max(0px, (100vw - 960px) / 2)));
+  max-width: 85vw;
+  background: #ffffff;
+  border-right: 1px solid #e5e7eb;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  z-index: 91;
+  overflow-y: auto;
+}
+
+/* Mirrors the navbar row so the close button sits exactly on the menu button. */
+.drawerHeader {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  height: 2.75rem;
+  padding: 0 2rem;
+  border-bottom: 1px solid #d1d5db;
+  flex-shrink: 0;
+}
+
+.drawerBody {
+  padding: 1rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.drawerTitle {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.drawerError {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #dc2626;
+}
+
+.drawerEmpty {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+.drawerList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.drawerGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.drawerGroupDate {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.drawerGroupList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.drawerRow {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.drawerRow:hover,
+.drawerRow:focus-within {
+  background: #f3f4f6;
+}
+
+.drawerItem {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: #374151;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  word-break: break-word;
+}
+
+.drawerItem:hover {
+  background: transparent;
+}
+
+/* Same X as the snackbar close, hidden until the row is hovered. */
+.drawerClose {
+  flex-shrink: 0;
+  padding: 0 0.5rem;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: #6b7280;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.drawerRow:hover .drawerClose,
+.drawerRow:focus-within .drawerClose {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drawerClose:hover,
+.drawerClose:focus-visible {
+  color: #dc2626;
+}
