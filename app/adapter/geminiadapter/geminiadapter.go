@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gatsu420/kisu-be/app/usecase/metadata"
-	"github.com/gatsu420/kisu-be/common/commontype"
+	"github.com/gatsu420/kisu/app/usecase/metadata"
+	"github.com/gatsu420/kisu/common/commontype"
 	"google.golang.org/genai"
 )
 

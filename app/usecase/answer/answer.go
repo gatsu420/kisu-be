@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gatsu420/kisu-be/app/adapter/driveadapter"
-	"github.com/gatsu420/kisu-be/app/adapter/geminiadapter"
-	"github.com/gatsu420/kisu-be/app/repository/pgrepo"
-	"github.com/gatsu420/kisu-be/common/commoncrypto"
-	"github.com/gatsu420/kisu-be/common/commonctx"
-	"github.com/gatsu420/kisu-be/common/commontype"
+	"github.com/gatsu420/kisu/app/adapter/driveadapter"
+	"github.com/gatsu420/kisu/app/adapter/geminiadapter"
+	"github.com/gatsu420/kisu/app/repository/pgrepo"
+	"github.com/gatsu420/kisu/common/commoncrypto"
+	"github.com/gatsu420/kisu/common/commonctx"
+	"github.com/gatsu420/kisu/common/commontype"
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 )

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gatsu420/kisu-be/common/commontype"
+	"github.com/gatsu420/kisu/common/commontype"
 	"golang.org/x/oauth2"
 )
 

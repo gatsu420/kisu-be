@@ -1,0 +1,522 @@
+.page {
+  min-height: 100vh;
+  background: #f5f5f5;
+  display: flex;
+  flex-direction: column;
+}
+
+.main {
+  flex: 1;
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.card {
+  flex: 1;
+  background: #ffffff;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.cardTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0;
+}
+
+.setupCard {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+.setupLabel {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 0;
+}
+
+.setupRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.setupField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.setupInputTextarea {
+  width: 100%;
+  min-width: 200px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  outline: none;
+  transition: border-color 0.15s;
+  resize: vertical;
+  min-height: 8rem;
+}
+
+.setupInputTextarea:focus {
+  border-color: #4285f4;
+}
+
+.setupInput {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.setupInput:focus {
+  border-color: #4285f4;
+}
+
+.setupSubmit {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.setupBtn {
+  padding: 0.5rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  background: #4285f4;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.setupBtn:hover {
+  opacity: 0.9;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  /* Same spacing as sections on the Add Tool page (.form gap). */
+  gap: 2.5rem;
+}
+
+/* Tabs + result box: tighter gap than the .rows section gap. */
+.resultBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.infoCards {
+  display: flex;
+  gap: 1rem;
+}
+
+.infoCard {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.infoCardLabel {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 0;
+}
+
+.paren {
+  font-weight: 400;
+}
+
+.resetLink {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #6b7280;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.15s;
+}
+
+.resetLink:hover {
+  color: #374151;
+}
+
+.infoCardValue {
+  font-size: 0.8125rem;
+  color: #374151;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  overflow: hidden;
+}
+
+.seeMore {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  color: #4285f4;
+  font-size: 0.75rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.inputBar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+  background: white;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e5e7eb;
+}
+
+.promptInput {
+  flex: 1;
+  padding: 0.5rem 0;
+  font-size: 0.9rem;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: inherit;
+  line-height: 1.5;
+  color: #1f2937;
+}
+
+.promptInput::placeholder {
+  color: #9ca3af;
+}
+
+.askBtn {
+  width: 8rem;
+  flex-shrink: 0;
+  white-space: nowrap;
+  text-align: center;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  background: #4285f4;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.askBtn:hover {
+  opacity: 0.9;
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  z-index: 100;
+}
+
+.modal {
+  background: white;
+  border-radius: 10px;
+  padding: 1.25rem;
+  width: 100%;
+  max-width: 560px;
+  max-height: 80vh;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.modalClose {
+  background: #f3f4f6;
+  border: none;
+  padding: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.modalClose:hover {
+  background: #e5e7eb;
+}
+
+.modalValue {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #1f2937;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Result tabs: save chip dropdown above the result box. */
+.saveWrap {
+  position: relative;
+}
+
+.saveCaret {
+  font-size: 0.8em;
+}
+
+.saveMenu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  min-width: 14rem;
+  width: max-content;
+  padding: 0.25rem;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0 8px 8px 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  z-index: 20;
+}
+
+.saveMenuItem {
+  display: block;
+  width: 100%;
+  white-space: nowrap;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: #374151;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.saveMenuItem:hover:not(:disabled) {
+  background: #f3f4f6;
+}
+
+.saveMenuItem:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Dimmed copy of the Tool page tab chip for disabled tabs. */
+.tabDisabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* White link inside the green success snackbar. */
+.snackLink {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+.uploadError {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #dc2626;
+}
+
+.tableContainer {
+  background: white;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+
+.emptyTable {
+  color: #9ca3af;
+  font-size: 0.875rem;
+  font-style: italic;
+  padding: 2rem;
+  text-align: center;
+}
+
+.thinking {
+  color: #9ca3af;
+  font-size: 0.875rem;
+  font-style: italic;
+  padding: 2rem;
+  text-align: center;
+}
+
+.error {
+  color: #dc2626;
+  font-size: 0.875rem;
+  padding: 1rem;
+}
+
+.tableWrap {
+  flex: 1;
+  overflow: auto;
+}
+
+/* Pagination footer under the result table. */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.pagerBtn {
+  padding: 0.375rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #1f2937;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.pagerBtn:hover:not(:disabled) {
+  background: #f3f4f6;
+}
+
+.pagerBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagerPage {
+  font-size: 0.8125rem;
+  color: #6b7280;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.th {
+  text-align: left;
+  padding: 0.625rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  background: #f9fafb;
+  position: sticky;
+  top: 0;
+}
+
+.td {
+  padding: 0.625rem 1rem;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 0.875rem;
+  color: #1f2937;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trEven {
+  background: #f9fafb;
+}
+
+.emptyResult {
+  color: #9ca3af;
+  font-size: 0.875rem;
+  font-style: italic;
+  padding: 2rem;
+  text-align: center;
+}
+
+.pre {
+  background: #1f2937;
+  color: #a7f3d0;
+  padding: 1rem;
+  border-radius: 6px;
+  overflow: auto;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+/* Box for the tool call tab content. */
+.funcCallContainer {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* pre-wrap keeps the newlines from the stringified func call.
+   overflow-wrap: anywhere breaks long unbroken strings (urls, ids). */
+.funcCallBody {
+  margin: 0;
+  padding: 1rem;
+  border-top: 1px solid #e5e7eb;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #1f2937;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  overflow-x: hidden;
+}
+
+/* Shiki output sits inside .funcCallBody. Keep our quiet box look.
+   .shiki and .line come from the shiki library, so they must be :global
+   or CSS modules will hash them and the selector never matches. */
+.funcCallBody :global(.shiki),
+.funcCallBody :global(.shiki code),
+.funcCallBody :global(.shiki .line) {
+  margin: 0;
+  padding: 0;
+  background-color: transparent !important;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}

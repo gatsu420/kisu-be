@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/gatsu420/kisu-be/app/adapter/googleauthadapter"
+	"github.com/gatsu420/kisu/app/adapter/googleauthadapter"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/googleapi"

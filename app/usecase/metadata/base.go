@@ -3,8 +3,8 @@ package metadata
 import (
 	"context"
 
-	"github.com/gatsu420/kisu-be/app/repository/bqrepo"
-	"github.com/gatsu420/kisu-be/app/repository/pgrepo"
+	"github.com/gatsu420/kisu/app/repository/bqrepo"
+	"github.com/gatsu420/kisu/app/repository/pgrepo"
 )
 
 type Usecase interface {

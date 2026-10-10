@@ -1,4 +1,4 @@
-module github.com/gatsu420/kisu-be
+module github.com/gatsu420/kisu
 
 go 1.25.0
 
